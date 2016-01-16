@@ -1,7 +1,7 @@
 /**************************************************************************
 ** This file is part of LiteIDE
 **
-** Copyright (c) 2011-2014 LiteIDE Team. All rights reserved.
+** Copyright (c) 2011-2016 LiteIDE Team. All rights reserved.
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
@@ -44,6 +44,7 @@ protected slots:
 protected:
     LiteApi::IApplication *m_liteApp;
     QAction   *m_gofmtAct;
+    QAction   *m_goimportsAct;
     QAction   *m_goplayAct;
     LiteApi::IEditor *m_playEditor;
     QToolButton *m_fmtBtn;
@@ -62,7 +63,7 @@ public:
         m_info->setId("plugin/golangfmt");
         m_info->setName("GolangFmt");
         m_info->setAuthor("visualfc");
-        m_info->setVer("x21");
+        m_info->setVer("X27");
         m_info->setInfo("Golang Format Support");
     }
 };

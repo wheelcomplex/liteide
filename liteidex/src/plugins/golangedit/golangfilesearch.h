@@ -1,7 +1,7 @@
 /**************************************************************************
 ** This file is part of LiteIDE
 **
-** Copyright (c) 2011-2014 LiteIDE Team. All rights reserved.
+** Copyright (c) 2011-2016 LiteIDE Team. All rights reserved.
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
@@ -29,6 +29,18 @@
 #include "liteeditorapi/liteeditorapi.h"
 #include "processex/processex.h"
 
+inline QByteArray trimmedRight(const QByteArray &d)
+{
+    if (d.size() == 0) {
+        return d;
+    }
+    const char *s = d.data();
+    int end = d.size() - 1;
+    while (end && isspace(uchar(s[end])))           // skip white space from end
+        end--;
+    return d.left(end+1);
+}
+
 class GolangFileSearch : public LiteApi::IFileSearch
 {
     Q_OBJECT
@@ -42,7 +54,8 @@ public:
     virtual void activate();
     virtual QString searchText() const;
     virtual bool replaceMode() const;
-    void findUsages(LiteApi::ITextEditor *editor, QTextCursor cursor, bool replace = false);
+    virtual bool canCancel() const { return false; }
+    void findUsages(LiteApi::ITextEditor *editor, QTextCursor cursor, bool global, bool replace = false);
 public slots:
     void findUsagesStarted();
     void findUsagesOutput(QByteArray,bool);
@@ -54,6 +67,7 @@ protected:
     QString m_searchText;
     QString m_lastLineText;
     int     m_lastLine;
+    bool    m_bParserHead;
     bool    m_replaceMode;
 };
 

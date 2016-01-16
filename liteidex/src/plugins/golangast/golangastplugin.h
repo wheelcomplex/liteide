@@ -1,7 +1,7 @@
 /**************************************************************************
 ** This file is part of LiteIDE
 **
-** Copyright (c) 2011-2014 LiteIDE Team. All rights reserved.
+** Copyright (c) 2011-2016 LiteIDE Team. All rights reserved.
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
@@ -48,7 +48,7 @@ public:
         m_info->setId("plugin/golangast");
         m_info->setName("GolangAst");
         m_info->setAuthor("visualfc");
-        m_info->setVer("x21");
+        m_info->setVer("X27.1");
         m_info->setInfo("Golang Ast View");
     }
 };

@@ -1,7 +1,7 @@
 /**************************************************************************
 ** This file is part of LiteIDE
 **
-** Copyright (c) 2011-2014 LiteIDE Team. All rights reserved.
+** Copyright (c) 2011-2016 LiteIDE Team. All rights reserved.
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
@@ -31,5 +31,7 @@
 #else
 #  define JSONEDITSHARED_EXPORT Q_DECL_IMPORT
 #endif
+
+#define JSONFMT_TAG "jsonfmt/navtag"
 
 #endif // JSONEDIT_GLOBAL_H

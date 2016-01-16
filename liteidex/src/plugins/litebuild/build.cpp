@@ -1,7 +1,7 @@
 /**************************************************************************
 ** This file is part of LiteIDE
 **
-** Copyright (c) 2011-2014 LiteIDE Team. All rights reserved.
+** Copyright (c) 2011-2016 LiteIDE Team. All rights reserved.
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
@@ -69,6 +69,11 @@ QString Build::id() const
 QString Build::work() const
 {
     return m_work;
+}
+
+QString Build::lock() const
+{
+    return m_lock;
 }
 
 QList<BuildAction*> Build::actionList() const
@@ -211,8 +216,49 @@ void Build::setWork(const QString &work)
     m_work = work;
 }
 
+void Build::setLock(const QString &lock)
+{
+    m_lock = lock;
+}
+
 void Build::appendAction(BuildAction *act)
 {
+    for (int i = 0; i < m_actionList.size(); i++) {
+        BuildAction *ba = m_actionList[i];
+        if (ba->id() == act->id()) {
+#ifdef Q_OS_MAC
+                if (act->os().contains("macosx",Qt::CaseInsensitive)) {
+                    m_actionList[i] = act;
+                    delete ba;
+                }
+#endif
+#ifdef Q_OS_WIN
+                if (act->os().contains("windows",Qt::CaseInsensitive)) {
+                    m_actionList[i] = act;
+                    delete ba;
+                }
+#endif
+#ifdef Q_OS_LINUX
+                if (act->os().contains("linux",Qt::CaseInsensitive)) {
+                    m_actionList[i] = act;
+                    delete ba;
+                }
+#endif
+#ifdef Q_OS_FREEBSD
+                if (act->os().contains("freebsd",Qt::CaseInsensitive)) {
+                    m_actionList[i] = act;
+                    delete ba;
+                }
+#endif
+#ifdef Q_OS_OPENBD
+                if (act->os().contains("openbsd",Qt::CaseInsensitive)) {
+                    m_actionList[i] = act;
+                    delete ba;
+                }
+#endif
+                return;
+        }
+    }
     m_actionList.append(act);
 }
 
@@ -245,7 +291,7 @@ bool Build::loadBuild(LiteApi::IBuildManager *manager, const QString &fileName)
     return Build::loadBuild(manager,&file,fileName);
 }
 
-static int build_ver = 1;
+static int build_ver = 2;
 
 bool Build::loadBuild(LiteApi::IBuildManager *manager, QIODevice *dev, const QString &fileName)
 {
@@ -269,6 +315,7 @@ bool Build::loadBuild(LiteApi::IBuildManager *manager, QIODevice *dev, const QSt
                     build->setType(attrs.value("type").toString());
                     build->setId(attrs.value("id").toString());
                     build->setWork(attrs.value("work").toString());
+                    build->setLock(attrs.value("lock").toString());
                 }
             } else if (reader.name() == "lookup" && lookup == 0 && build != 0) {
                 lookup = new BuildLookup;
@@ -278,6 +325,7 @@ bool Build::loadBuild(LiteApi::IBuildManager *manager, QIODevice *dev, const QSt
             } else if (reader.name() == "action" && act == 0 && build != 0) {
                 act = new BuildAction;
                 act->setId(attrs.value("id").toString());
+                act->setOs(attrs.value("os").toString());
                 act->setMenu(attrs.value("menu").toString());
                 act->setKey(attrs.value("key").toString());
                 act->setCmd(attrs.value("cmd").toString());

@@ -1,7 +1,7 @@
 /**************************************************************************
 ** This file is part of LiteIDE
 **
-** Copyright (c) 2011-2014 LiteIDE Team. All rights reserved.
+** Copyright (c) 2011-2016 LiteIDE Team. All rights reserved.
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
@@ -376,10 +376,10 @@ void FindApiWidget::rebuildApiData()
         return;
     }
     m_rebuildThread->setEnvironment(LiteApi::getGoEnvironment(m_liteApp).toStringList());
-    QString cmd = LiteApi::liteide_stub_cmd(m_liteApp);
+    QString cmd = LiteApi::getGotools(m_liteApp);
     m_rebuildThread->setWorkingDirectory(m_liteApp->storagePath());
     QStringList args;
-    args << "api" << "-o" << "golangapi.txt" << "all";
+    args << "goapi" << "-o" << "golangapi.txt" << "all";
     m_rebuildThread->start(cmd,args);
 }
 

@@ -11,12 +11,12 @@ SUBDIRS = \
     textoutput \
     symboltreeview \
     modelproject \
-    wordapi \
     processex \
     colorstyle \
     documentbrowser \
     htmlutil \
     golangapi \
     filesystem \
-    editorutil
+    editorutil \
+    folderview
 

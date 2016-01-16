@@ -1,7 +1,7 @@
 /**************************************************************************
 ** This file is part of LiteIDE
 **
-** Copyright (c) 2011-2014 LiteIDE Team. All rights reserved.
+** Copyright (c) 2011-2016 LiteIDE Team. All rights reserved.
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
@@ -23,6 +23,9 @@
 
 #include "golangeditplugin.h"
 #include "golangedit.h"
+#include "golanghighlighterfactory.h"
+#include "golangeditoptionfactory.h"
+#include "liteeditorapi/liteeditorapi.h"
 #include <QtPlugin>
 //lite_memory_check_begin
 #if defined(WIN32) && defined(_MSC_VER) &&  defined(_DEBUG)
@@ -40,6 +43,11 @@ GolangEditPlugin::GolangEditPlugin()
 
 bool GolangEditPlugin::load(LiteApi::IApplication *app)
 {
+    LiteApi::IHighlighterManager *manager = LiteApi::getHighlighterManager(app);
+    if (manager) {
+        manager->addFactory(new GolangHighlighterFactory(this));
+    }
+    app->optionManager()->addFactory(new GolangEditOptionFactory(app,this));
     new GolangEdit(app,this);
     return true;
 }

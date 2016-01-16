@@ -1,7 +1,7 @@
 /**************************************************************************
 ** This file is part of LiteIDE
 **
-** Copyright (c) 2011-2014 LiteIDE Team. All rights reserved.
+** Copyright (c) 2011-2016 LiteIDE Team. All rights reserved.
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
@@ -54,7 +54,7 @@ public:
         m_info->setId("plugin/golangdoc");
         m_info->setName("GolangDoc");
         m_info->setAuthor("visualfc");
-        m_info->setVer("x21.1");
+        m_info->setVer("X25.2");
         m_info->setInfo("Golang Documents Browser");
         m_info->appendDepend("plugin/liteenv");
         m_info->appendDepend("plugin/liteeditor");

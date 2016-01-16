@@ -1,7 +1,7 @@
 /**************************************************************************
 ** This file is part of LiteIDE
 **
-** Copyright (c) 2011-2014 LiteIDE Team. All rights reserved.
+** Copyright (c) 2011-2016 LiteIDE Team. All rights reserved.
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
@@ -75,7 +75,6 @@ protected:
     virtual void mouseDoubleClickEvent(QMouseEvent *e);
 };
 
-
 class FileSearch : public LiteApi::IFileSearch
 {
     Q_OBJECT
@@ -91,6 +90,7 @@ public:
     virtual void activate();
     virtual QString searchText() const;
     virtual bool replaceMode() const { return false; }
+    virtual bool canCancel() const { return true; }
 public slots:
     void findInFiles();
     void browser();

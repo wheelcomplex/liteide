@@ -66,36 +66,9 @@ public:
     Highlighter(QTextDocument *parent = 0);
     virtual ~Highlighter();
 
-    enum TextFormatId {
-        Normal = 1,
-        VisualWhitespace,
-        Keyword,
-        DataType,
-        Decimal,
-        BaseN,
-        Float,
-        Char,
-        String,
-        Comment,
-        Alert,
-        Error,
-        Function,
-        RegionMarker,
-        Others,
-        Symbol,
-        BuiltinFunc,
-        Predeclared,
-        FuncDecl,
-        Placeholder,
-        ToDo,
-        TextFormatId_MAX
-    };
-
-    void configureFormat(TextFormatId id, const QTextCharFormat &format);
     //void setTabSettings(const TabSettings &ts);
-    void setTabSize(int tabSize);
+    virtual void setTabSize(int tabSize);
     void setDefaultContext(const QSharedPointer<Context> &defaultContext);
-
 protected:
     virtual void highlightBlock(const QString &text);
 
@@ -141,14 +114,6 @@ private:
     void applyIndentationBasedFolding(const QString &text);
     int neighbouringNonEmptyBlockIndent(QTextBlock block, const bool previous) const;
     // Mapping from Kate format strings to format ids.
-    struct KateFormatMap
-    {
-        KateFormatMap();
-        QHash<QString, TextFormatId> m_ids;
-    };
-    static const KateFormatMap m_kateFormats;
-    //QHash<TextFormatId, QTextCharFormat> m_creatorFormats;
-    QTextCharFormat m_creatorFormats[TextFormatId_MAX];
 public:
     struct BlockData : TextBlockUserData
     {

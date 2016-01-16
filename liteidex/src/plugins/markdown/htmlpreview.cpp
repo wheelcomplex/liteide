@@ -1,7 +1,7 @@
 /**************************************************************************
 ** This file is part of LiteIDE
 **
-** Copyright (c) 2011-2014 LiteIDE Team. All rights reserved.
+** Copyright (c) 2011-2016 LiteIDE Team. All rights reserved.
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
@@ -93,7 +93,7 @@ HtmlPreview::HtmlPreview(LiteApi::IApplication *app,QObject *parent) :
     QList<QAction*> actions;
     actions << m_configMenu->menuAction() << m_reloadAct << m_exportHtmlAct << m_exportPdfAct << m_printPreviewAct << m_cssMenu->menuAction();
 
-    m_toolAct = m_liteApp->toolWindowManager()->addToolWindow(Qt::RightDockWidgetArea,
+    m_toolAct = m_liteApp->toolWindowManager()->addToolWindow(Qt::BottomDockWidgetArea,
                                                   m_widget,
                                                   QString("HtmlPreview"),
                                                   QString(tr("HTML Preview")),
@@ -173,7 +173,7 @@ void HtmlPreview::appLoaded()
     sep->setSeparator(true);
     m_cssActGroup->addAction(sep);
 
-    QFile file(m_liteApp->resourcePath()+"/markdown/export.html");
+    QFile file(m_liteApp->resourcePath()+"/packages/markdown/export.html");
     if (file.open(QFile::ReadOnly)) {
         m_exportOrgTemple = file.readAll();
     } else {
@@ -186,7 +186,7 @@ void HtmlPreview::appLoaded()
     QString defcss;
 
     if (m_bWebkit) {
-        QDir dir(m_liteApp->resourcePath()+"/markdown/css");
+        QDir dir(m_liteApp->resourcePath()+"/packages/markdown/css");
         foreach (QFileInfo info, dir.entryInfoList(QStringList()<<"*.css",QDir::Files)) {
             QAction *act = new QAction(info.fileName(),this);
             act->setCheckable(true);
@@ -451,7 +451,7 @@ void HtmlPreview::cssTtriggered(QAction *act)
         if (!m_bWebkit) {
             fileName = ":/markdown/css/"+act->text();
         } else {
-            fileName = m_liteApp->resourcePath()+"/markdown/css/"+act->text();
+            fileName = m_liteApp->resourcePath()+"/packages/markdown/css/"+act->text();
         }
         cssData = this->loadCssData(fileName);
     }

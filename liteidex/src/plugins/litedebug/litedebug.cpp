@@ -1,7 +1,7 @@
 /**************************************************************************
 ** This file is part of LiteIDE
 **
-** Copyright (c) 2011-2014 LiteIDE Team. All rights reserved.
+** Copyright (c) 2011-2016 LiteIDE Team. All rights reserved.
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
@@ -69,11 +69,9 @@ LiteDebug::LiteDebug(LiteApi::IApplication *app, QObject *parent) :
 
     m_output = new TextOutput(m_liteApp);
     m_output->setReadOnly(true);
-    m_output->setMaxLine(2048);
 
     QAction *clearAct = new QAction(tr("Clear"),this);
     clearAct->setIcon(QIcon("icon:images/cleanoutput.png"));
-
     connect(clearAct,SIGNAL(triggered()),m_output,SLOT(clear()));
 
     QVBoxLayout *layout = new QVBoxLayout;    
@@ -261,7 +259,7 @@ void LiteDebug::editorCreated(LiteApi::IEditor *editor)
         editorMark->addMark(m_lastLine.line,LiteApi::CurrentLineMark);
     }
 
-    QToolBar *toolBar = LiteApi::findExtensionObject<QToolBar*>(editor,"LiteApi.QToolBar");
+    QToolBar *toolBar = LiteApi::getEditToolBar(editor);
     if (toolBar) {
         toolBar->addSeparator();
         toolBar->addAction(m_switchBreakAct);
@@ -366,7 +364,7 @@ void LiteDebug::startDebug(const QString &cmd, const QString &args, const QStrin
     }
 
     m_debugger->setInitBreakTable(m_fileBpMap);
-    m_debugger->setEnvironment(m_envManager->currentEnvironment().toStringList());
+    m_debugger->setEnvironment(LiteApi::getGoEnvironment(m_liteApp).toStringList());
     m_debugger->setWorkingDirectory(work);
     if (!m_debugger->start(cmd,args)) {
         m_liteApp->appendLog("LiteDebug","Failed to start debugger",true);
@@ -562,13 +560,14 @@ void LiteDebug::showLine()
     if (m_lastLine.fileName.isEmpty()) {
         return;
     }
-    LiteApi::IEditor *editor = m_liteApp->fileManager()->openEditor(m_lastLine.fileName,true);
-    if (editor) {
-        LiteApi::ITextEditor *textEditor = LiteApi::findExtensionObject<LiteApi::ITextEditor*>(editor,"LiteApi.ITextEditor");
-        if (textEditor) {
-            textEditor->gotoLine(m_lastLine.line,0,true);
-        }
-    }
+    LiteApi::gotoLine(m_liteApp,m_lastLine.fileName,m_lastLine.line,0,true,true);
+//    LiteApi::IEditor *editor = m_liteApp->fileManager()->openEditor(m_lastLine.fileName,true);
+//    if (editor) {
+//        LiteApi::ITextEditor *textEditor = LiteApi::findExtensionObject<LiteApi::ITextEditor*>(editor,"LiteApi.ITextEditor");
+//        if (textEditor) {
+//            textEditor->gotoLine(m_lastLine.line,0,true);
+//        }
+//    }
 }
 
 void LiteDebug::removeAllBreakPoints()

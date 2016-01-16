@@ -45,6 +45,7 @@
 #include <QCheckBox>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QToolBar>
 
 static const int SEARCHRESULT_WARNING_LIMIT = 200000;
 static const char SIZE_WARNING_ID[] = "sizeWarningLabel";
@@ -81,34 +82,35 @@ SearchResultWidget::SearchResultWidget(QWidget *parent) :
     m_count(0),
     m_isShowingReplaceUI(false),
     m_searchAgainSupported(false),
-    m_preserveCaseSupported(false)
+    m_preserveCaseSupported(false),
+    m_cancelSupported(true)
 {
     QVBoxLayout *layout = new QVBoxLayout(this);
-    layout->setMargin(0);
-    layout->setSpacing(0);
+    layout->setMargin(2);
+    layout->setSpacing(1);
     setLayout(layout);
 
     QFrame *topWidget = new QFrame;
-    QPalette pal = topWidget->palette();
-    pal.setColor(QPalette::Window, QColor(255, 255, 225));
-    pal.setColor(QPalette::WindowText, Qt::black);
-    topWidget->setPalette(pal);
-    topWidget->setFrameStyle(QFrame::Panel | QFrame::Raised);
-    topWidget->setLineWidth(1);
-    topWidget->setAutoFillBackground(true);
+//    QPalette pal = topWidget->palette();
+//    pal.setColor(QPalette::Window, QColor(255, 255, 225));
+//    pal.setColor(QPalette::WindowText, Qt::black);
+//    topWidget->setPalette(pal);
+    topWidget->setFrameStyle(QFrame::Panel);// | QFrame::Raised);
+    topWidget->setLineWidth(0);
+    //topWidget->setAutoFillBackground(true);
     QHBoxLayout *topLayout = new QHBoxLayout(topWidget);
-    topLayout->setMargin(2);
+    topLayout->setMargin(0);
     topWidget->setLayout(topLayout);
     layout->addWidget(topWidget);
 
     m_infoWidget = new QFrame;
-    pal = m_infoWidget->palette();
-    pal.setColor(QPalette::Window, QColor(255, 255, 225));
-    pal.setColor(QPalette::WindowText, Qt::black);
-    m_infoWidget->setPalette(pal);
-    m_infoWidget->setFrameStyle(QFrame::Panel | QFrame::Raised);
-    m_infoWidget->setLineWidth(1);
-    m_infoWidget->setAutoFillBackground(true);
+//    pal = m_infoWidget->palette();
+//    pal.setColor(QPalette::Window, QColor(255, 255, 225));
+//    pal.setColor(QPalette::WindowText, Qt::black);
+//    m_infoWidget->setPalette(pal);
+    m_infoWidget->setFrameStyle(QFrame::Panel);// | QFrame::Raised);
+    m_infoWidget->setLineWidth(0);
+    //m_infoWidget->setAutoFillBackground(true);
 
     QHBoxLayout *infoLayout = new QHBoxLayout(m_infoWidget);
     infoLayout->setMargin(2);
@@ -118,24 +120,24 @@ SearchResultWidget::SearchResultWidget(QWidget *parent) :
 
 
     m_messageWidget = new QFrame;
-    pal.setColor(QPalette::Window, QColor(255, 255, 225));
-    pal.setColor(QPalette::WindowText, Qt::red);
-    m_messageWidget->setPalette(pal);
-    m_messageWidget->setFrameStyle(QFrame::Panel | QFrame::Raised);
-    m_messageWidget->setLineWidth(1);
-    m_messageWidget->setAutoFillBackground(true);
+//    pal.setColor(QPalette::Window, QColor(255, 255, 225));
+//    pal.setColor(QPalette::WindowText, Qt::red);
+//    m_messageWidget->setPalette(pal);
+    m_messageWidget->setFrameStyle(QFrame::Panel);// | QFrame::Raised);
+    m_messageWidget->setLineWidth(0);
+    //m_messageWidget->setAutoFillBackground(true);
     QHBoxLayout *messageLayout = new QHBoxLayout(m_messageWidget);
     messageLayout->setMargin(2);
     m_messageWidget->setLayout(messageLayout);
     QLabel *messageLabel = new QLabel(tr("Search was canceled."));
-    messageLabel->setPalette(pal);
+    //messageLabel->setPalette(pal);
     messageLayout->addWidget(messageLabel);
     layout->addWidget(m_messageWidget);
     m_messageWidget->setVisible(false);
 
     m_searchResultTreeView = new Internal::SearchResultTreeView(this);
-    m_searchResultTreeView->setFrameStyle(QFrame::NoFrame);
-    m_searchResultTreeView->setAttribute(Qt::WA_MacShowFocusRect, false);
+    //m_searchResultTreeView->setFrameStyle(QFrame::NoFrame);
+    //m_searchResultTreeView->setAttribute(Qt::WA_MacShowFocusRect, false);
 //    Aggregation::Aggregate * agg = new Aggregation::Aggregate;
 //    agg->add(m_searchResultTreeView);
 //    agg->add(new TreeViewFind(m_searchResultTreeView,
@@ -168,6 +170,13 @@ SearchResultWidget::SearchResultWidget(QWidget *parent) :
     m_searchAgainButton->setVisible(false);
     connect(m_searchAgainButton, SIGNAL(clicked()), this, SLOT(searchAgain()));
 
+    m_showReplaceModeButton = new QToolButton(topWidget);
+    m_showReplaceModeButton->setToolTip(tr("Set show replace mode ui"));
+    m_showReplaceModeButton->setText(tr("Show Replace"));
+    m_showReplaceModeButton->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    m_showReplaceModeButton->setVisible(false);
+    connect(m_showReplaceModeButton,SIGNAL(clicked()),this,SLOT(showReplaceMode()));
+
     m_replaceLabel = new QLabel(tr("Replace with:"), topWidget);
     m_replaceTextEdit = new WideEnoughLineEdit(topWidget);
     m_replaceTextEdit->setMinimumWidth(120);
@@ -188,11 +197,12 @@ SearchResultWidget::SearchResultWidget(QWidget *parent) :
 //    }
 
     m_matchesFoundLabel = new QLabel(topWidget);
-    updateMatchesFoundLabel();
+    endMatchesFoundLabel();
 
     topLayout->addWidget(m_descriptionContainer);
     topLayout->addWidget(m_cancelButton);
     topLayout->addWidget(m_searchAgainButton);
+    topLayout->addWidget(m_showReplaceModeButton);
     topLayout->addWidget(m_replaceLabel);
     topLayout->addWidget(m_replaceTextEdit);
     topLayout->addWidget(m_replaceButton);
@@ -225,6 +235,11 @@ void SearchResultWidget::setInfo(const QString &label, const QString &toolTip, c
     m_searchTerm->setVisible(!term.isEmpty());
 }
 
+QString SearchResultWidget::searchText() const
+{
+    return m_searchTerm->text();
+}
+
 void SearchResultWidget::addResult(const QString &fileName, int lineNumber, const QString &rowText,
     int searchTermStart, int searchTermLength, const QVariant &userData)
 {
@@ -239,12 +254,12 @@ void SearchResultWidget::addResult(const QString &fileName, int lineNumber, cons
     addResults(QList<SearchResultItem>() << item, AddOrdered);
 }
 
-void SearchResultWidget::addResults(const QList<SearchResultItem> &items, AddMode mode)
+void SearchResultWidget::addResults(const QList<SearchResultItem> &items, AddMode mode, bool revert)
 {
     bool firstItems = (m_count == 0);
     m_count += items.size();
     m_searchResultTreeView->addResults(items, mode);
-    updateMatchesFoundLabel();
+    updateMatchesFoundLabel(revert);
     if (firstItems) {
 //        if (!m_dontAskAgainGroup.isEmpty()) {
 //            Core::Id undoWarningId = Core::Id("warninglabel/").withSuffix(m_dontAskAgainGroup);
@@ -282,7 +297,14 @@ void SearchResultWidget::addResults(const QList<SearchResultItem> &items, AddMod
     }
 }
 
-
+void SearchResultWidget::setRevertMode(const QString &replaceText, const QString &searchText)
+{
+    m_searchTerm->setText(replaceText);
+    this->setTextToReplace(searchText);
+    this->m_replaceLabel->setText(tr("Revert with:"));
+    this->m_replaceButton->setText(tr("Revert"));
+    this->m_replaceButton->setToolTip(tr("Revert all occurrences"));
+}
 
 int SearchResultWidget::count() const
 {
@@ -319,6 +341,7 @@ void SearchResultWidget::setShowReplaceUI(bool visible)
     m_preserveCaseCheck->setVisible(m_preserveCaseSupported && visible);
     m_isShowingReplaceUI = visible;
     m_infoWidget->setVisible(visible);
+    m_showReplaceModeButton->setVisible(false);
 }
 
 void SearchResultWidget::setInfoWidgetLabel(const QString &infoText)
@@ -408,11 +431,27 @@ void SearchResultWidget::restart()
 //    Core::Id sizeWarningId(SIZE_WARNING_ID);
 //    m_infoBar.removeInfo(sizeWarningId);
 //    m_infoBar.enableInfo(sizeWarningId);
-    m_cancelButton->setVisible(true);
+    m_cancelButton->setVisible(m_cancelSupported);
     m_searchAgainButton->setVisible(false);
     m_messageWidget->setVisible(false);
-    updateMatchesFoundLabel();
+    m_replaceLabel->setText(tr("Replace with:"));
+    m_replaceButton->setToolTip(tr("Replace all occurrences"));
+    m_replaceButton->setText(tr("Replace"));
+    //updateMatchesFoundLabel();
+    beginMatchesFoundLabel();
     emit restarted();
+}
+
+void SearchResultWidget::clear()
+{
+    m_searchResultTreeView->clear();
+    m_count = 0;
+    endMatchesFoundLabel();
+}
+
+void SearchResultWidget::setCancelSupported(bool supported)
+{
+    m_cancelSupported = supported;
 }
 
 void SearchResultWidget::setSearchAgainSupported(bool supported)
@@ -434,15 +473,14 @@ void SearchResultWidget::setPreserveCaseSupported(bool supported)
 
 void SearchResultWidget::finishSearch(bool canceled)
 {
-//    Core::Id sizeWarningId(SIZE_WARNING_ID);
-//    m_infoBar.removeInfo(sizeWarningId);
-//    m_infoBar.enableInfo(sizeWarningId);
+    endMatchesFoundLabel();
     m_replaceTextEdit->setEnabled(m_count > 0);
     m_replaceButton->setEnabled(m_count > 0);
     m_preserveCaseCheck->setEnabled(m_count > 0);
     m_cancelButton->setVisible(false);
     m_messageWidget->setVisible(canceled);
     m_searchAgainButton->setVisible(m_searchAgainSupported);
+    m_showReplaceModeButton->setVisible(!this->m_isShowingReplaceUI && !canceled && m_count > 0);
 }
 
 void SearchResultWidget::sendRequestPopup()
@@ -492,6 +530,26 @@ void SearchResultWidget::searchAgain()
     emit searchAgainRequested();
 }
 
+void SearchResultWidget::showReplaceMode()
+{
+    this->setShowReplaceUI(true);
+    Internal::SearchResultTreeModel *model = m_searchResultTreeView->model();
+    const int fileCount = model->rowCount(QModelIndex());
+    for (int i = 0; i < fileCount; ++i) {
+        QModelIndex fileIndex = model->index(i, 0, QModelIndex());
+        Internal::SearchResultTreeItem *fileItem = static_cast<Internal::SearchResultTreeItem *>(fileIndex.internalPointer());
+        fileItem->setIsUserCheckable(true);
+        fileItem->setCheckState(Qt::Checked);
+        for (int rowIndex = 0; rowIndex < fileItem->childrenCount(); ++rowIndex) {
+            QModelIndex textIndex = model->index(rowIndex, 0, fileIndex);
+            Internal::SearchResultTreeItem *rowItem = static_cast<Internal::SearchResultTreeItem *>(textIndex.internalPointer());
+            rowItem->setIsUserCheckable(true);
+            rowItem->setCheckState(Qt::Checked);
+        }
+    }
+    this->m_replaceTextEdit->setFocus();
+}
+
 QList<SearchResultItem> SearchResultWidget::checkedItems() const
 {
     QList<SearchResultItem> result;
@@ -511,7 +569,21 @@ QList<SearchResultItem> SearchResultWidget::checkedItems() const
     return result;
 }
 
-void SearchResultWidget::updateMatchesFoundLabel()
+void SearchResultWidget::updateMatchesFoundLabel(bool revert)
+{
+    if (revert) {
+        m_matchesFoundLabel->setText(tr("%n matches replaced.", 0, m_count));
+    } else {
+        m_matchesFoundLabel->setText(tr("searching... %n matches found.", 0, m_count));
+    }
+}
+
+void SearchResultWidget::beginMatchesFoundLabel()
+{
+    m_matchesFoundLabel->setText(tr("searching ..."));
+}
+
+void SearchResultWidget::endMatchesFoundLabel()
 {
     if (m_count == 0)
         m_matchesFoundLabel->setText(tr("No matches found."));

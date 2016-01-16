@@ -17,13 +17,17 @@ if ERRORLEVEL 1 goto go_fail
 echo update liteide tools ...
 
 cd %LITEIDE_ROOT%
-set GOPATH=%CD%;%GOPATH%
+if defined %GOPATH (
+	set GOPATH=%CD%;%GOPATH%
+) else (
+	set GOPATH=%CD%
+)
+echo GOPATH=%GOPATH%
 
-echo get goimports ...
-go get -v -u "github.com/visualfc/goimports"
 echo get gocode ...
 go get -v -u "github.com/nsf/gocode"
-
+echo get gotools ...
+go get -v -u "github.com/visualfc/gotools"
 
 cd %BUILD_ROOT%
 

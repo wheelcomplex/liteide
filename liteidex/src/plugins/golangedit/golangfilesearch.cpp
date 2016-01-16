@@ -1,7 +1,7 @@
 /**************************************************************************
 ** This file is part of LiteIDE
 **
-** Copyright (c) 2011-2014 LiteIDE Team. All rights reserved.
+** Copyright (c) 2011-2016 LiteIDE Team. All rights reserved.
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
@@ -38,6 +38,7 @@ GolangFileSearch::GolangFileSearch(LiteApi::IApplication *app, QObject *parent) 
 {
     m_process = new ProcessEx(this);
     m_replaceMode = false;
+    m_bParserHead = true;
     connect(m_process,SIGNAL(started()),this,SLOT(findUsagesStarted()));
     connect(m_process,SIGNAL(extOutput(QByteArray,bool)),this,SLOT(findUsagesOutput(QByteArray,bool)));
     connect(m_process,SIGNAL(extFinish(bool,int,QString)),this,SLOT(findUsagesFinish(bool,int,QString)));
@@ -83,7 +84,7 @@ bool GolangFileSearch::replaceMode() const
     return m_replaceMode;
 }
 
-void GolangFileSearch::findUsages(LiteApi::ITextEditor *editor, QTextCursor cursor, bool replace)
+void GolangFileSearch::findUsages(LiteApi::ITextEditor *editor, QTextCursor cursor, bool global, bool replace)
 {
     if (m_process->isRunning()) {
         return;
@@ -106,14 +107,19 @@ void GolangFileSearch::findUsages(LiteApi::ITextEditor *editor, QTextCursor curs
     this->m_replaceMode = replace;
     manager->setCurrentSearch(this);
     m_lastLine = 0;
+    m_bParserHead = true;
     m_file.close();
-    QString cmd = LiteApi::liteide_stub_cmd(m_liteApp);
+    QString cmd = LiteApi::getGotools(m_liteApp);
     QFileInfo info(editor->filePath());
     m_process->setEnvironment(LiteApi::getGoEnvironment(m_liteApp).toStringList());
     m_process->setWorkingDirectory(info.path());
-    m_process->startEx(cmd,QString("type -cursor %1:%2 -use .").
-                             arg(info.fileName()).arg(offset));
-
+    if (global) {
+        m_process->startEx(cmd,QString("types -pos %1:%2 -info -use -all .").
+                                 arg(info.fileName()).arg(offset));
+    } else {
+        m_process->startEx(cmd,QString("types -pos %1:%2 -info -use .").
+                                 arg(info.fileName()).arg(offset));
+    }
 }
 
 void GolangFileSearch::findUsagesStarted()
@@ -124,11 +130,33 @@ void GolangFileSearch::findUsagesStarted()
 void GolangFileSearch::findUsagesOutput(QByteArray data, bool bStdErr)
 {
     if (bStdErr) {
+        QString info = QString::fromUtf8(data).trimmed();
+        emit findError(info);
+        m_liteApp->appendLog("find usage error",info,true);
         return;
     }
     QRegExp reg(":(\\d+):(\\d+)");
     foreach (QByteArray line, data.split('\n')) {
         QString info = QString::fromUtf8(line).trimmed();
+        if (m_bParserHead) {
+            m_bParserHead = false;
+            //package fmt
+            //package ast ("go/ast")
+            if (info.startsWith("package")) {
+                int n = info.indexOf("(");
+                if (n != -1) {
+                    info = info.left(n);
+                }
+                //change searchText
+                //m_searchText = info.mid(7).trimmed();
+                QString pkgName = info.mid(7).trimmed();
+                if (pkgName != m_searchText) {
+                    m_searchText = pkgName;
+                    emit searchTextChanged(pkgName);
+                }
+            }
+            continue;
+        }
         int pos = reg.lastIndexIn(info);
         if (pos >= 0) {
             QString fileName = info.left(pos);
@@ -148,7 +176,10 @@ void GolangFileSearch::findUsagesOutput(QByteArray data, bool bStdErr)
                         QByteArray line = m_file.readLine();
                         m_lastLine++;
                         if (fileLine == m_lastLine) {
-                            m_lastLineText = QString::fromUtf8(line);
+                            m_lastLineText = QString::fromUtf8(trimmedRight(line));
+                            if (fileCol > 0) {
+                                fileCol = QString::fromUtf8(line.left(fileCol)).length();
+                            }
                             break;
                         }
                     }

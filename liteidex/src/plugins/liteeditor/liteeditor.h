@@ -1,7 +1,7 @@
 /**************************************************************************
 ** This file is part of LiteIDE
 **
-** Copyright (c) 2011-2014 LiteIDE Team. All rights reserved.
+** Copyright (c) 2011-2016 LiteIDE Team. All rights reserved.
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
@@ -47,6 +47,7 @@ class QLabel;
 class QToolButton;
 class LiteCompleter;
 class ColorStyleScheme;
+class FunctionTooltip;
 
 class QLabelEx : public QLabel
 {
@@ -65,8 +66,12 @@ class LiteEditor : public LiteApi::ILiteEditor
 public:
     LiteEditor(LiteApi::IApplication *app);
     virtual ~LiteEditor();
+    virtual QTextDocument* document() const;
     virtual void setCompleter(LiteApi::ICompleter *complter);
     virtual void setEditorMark(LiteApi::IEditorMark *mark);
+    virtual void setTextLexer(LiteApi::ITextLexer *lexer);
+    void setSyntaxHighlighter(TextEditor::SyntaxHighlighter *syntax);
+    TextEditor::SyntaxHighlighter *syntaxHighlighter() const;
     void createActions();
     void createToolBars();
     void createMenu();
@@ -74,7 +79,6 @@ public:
     virtual QWidget *widget();
     virtual QString name() const;
     virtual QIcon icon() const;
-
     virtual bool createNew(const QString &contents, const QString &mimeType);
     virtual bool open(const QString &filePath, const QString &mimeType);
     virtual bool reload();
@@ -88,11 +92,16 @@ public:
     virtual LiteApi::IFile *file();
     virtual int line() const;
     virtual int column() const;
-    virtual int utf8Position(bool file) const;
+    virtual int utf8Position(bool realFile, int pos = -1) const;
     virtual QByteArray utf8Data() const;
     virtual void setWordWrap(bool wrap);
     virtual bool wordWrap() const;
     virtual void gotoLine(int line, int column, bool center);
+    virtual int position(PositionOperation posOp = Current, int at = -1) const;
+    virtual QString textAt(int pos, int length) const;
+    virtual QRect cursorRect(int pos = -1) const;
+    virtual QTextCursor textCursor() const;
+    virtual LiteEditorWidget *editorWidget() const;
     virtual QString textCodec() const;
     virtual void setTextCodec(const QString &codec);
     virtual QByteArray saveState() const;
@@ -107,7 +116,10 @@ public:
     virtual void clearAllNavigateMark(LiteApi::EditorNaviagteType types, const char *tag);
     virtual void showLink(const LiteApi::Link &link);
     virtual void clearLink();
-    LiteEditorWidget *editorWidget() const;
+    virtual void setTabOption(int tabSize, bool tabToSpace);
+    virtual void setEnableAutoIndentAction(bool b);
+    virtual bool isLineEndUnix() const;
+    virtual void setLineEndUnix(bool b);
 signals:
     void colorStyleChanged();
     void tabSettingChanged(int);
@@ -119,7 +131,7 @@ public slots:
 #ifdef LITEEDITOR_FIND
     void findNextText();
 #endif
-    void updateTip(QString,QString);
+    void updateTip(const QString &func,const QString &kind,const QString &info);
     void exportPdf();
     void exportHtml();
     void filePrint();
@@ -134,16 +146,27 @@ public slots:
     void decreaseFontSize();
     void resetFontSize();
     void setEditToolbarVisible(bool visible);
+    void comment();
+    void blockComment();
+    void autoIndent();
+    void tabToSpacesToggled(bool b);
+    void toggledVisualizeWhitespace(bool b);
+    void triggeredLineEnding(QAction *action);
+    void broadcast(const QString &module, const QString &id, const QString &param);
 public:
+    void updateFont();
+    void sendUpdateFont();
+    void initLoad();
     void findCodecs();
     QList<QTextCodec *> m_codecs;
     LiteApi::IApplication *m_liteApp;
     Extension   *m_extension;
     QWidget *m_widget;
-    QToolBar *m_toolBar;
-    QToolBar *m_infoToolBar;
+    QToolBar *m_editToolBar;
     LiteEditorWidget    *m_editorWidget;
     LiteApi::ICompleter *m_completer;
+    TextEditor::SyntaxHighlighter *m_syntax;
+    FunctionTooltip     *m_funcTip;
     QAction *m_undoAct;
     QAction *m_redoAct;
     QAction *m_cutAct;
@@ -162,6 +185,8 @@ public:
     QAction *m_gotoMatchBraceAct;
     QAction *m_selectBlockAct;
     QAction *m_gotoLineAct;
+    QAction *m_cutLineAct;
+    QAction *m_copyLineAct;
     QAction *m_duplicateAct;
     QAction *m_deleteLineAct;
     QAction *m_insertLineBeforeAct;
@@ -186,7 +211,31 @@ public:
     bool     m_offsetVisible;
     QLabelEx  *m_lineInfo;
     QAction *m_overInfoAct;
-    QAction *m_closeEditorAct;
+    //QAction *m_closeEditorAct;
+    QAction *m_commentAct;
+    QAction *m_blockCommentAct;
+    QAction *m_autoIndentAct;
+    QAction *m_tabToSpacesAct;
+    QAction *m_lineEndingWindowAct;
+    QAction *m_lineEndingUnixAct;
+    QAction *m_visualizeWhitespaceAct;
+    QAction *m_moveLineUpAction;
+    QAction *m_moveLineDownAction;
+    QAction *m_copyLineUpAction;
+    QAction *m_copyLineDownAction;
+    QAction *m_joinLinesAction;
+};
+
+class EditContext : public LiteApi::IEditContext
+{
+    Q_OBJECT
+public:
+    EditContext(LiteEditor *editor, QObject *parent);
+    virtual QWidget *focusWidget() const;
+    virtual QMenu   *focusMenu() const;
+    virtual QToolBar *focusToolBar() const;
+protected:
+    LiteEditor  *m_editor;
 };
 
 #endif //LITEEDITOR_H

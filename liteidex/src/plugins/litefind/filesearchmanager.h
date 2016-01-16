@@ -1,7 +1,7 @@
 /**************************************************************************
 ** This file is part of LiteIDE
 **
-** Copyright (c) 2011-2014 LiteIDE Team. All rights reserved.
+** Copyright (c) 2011-2016 LiteIDE Team. All rights reserved.
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
@@ -46,8 +46,10 @@ public slots:
     void currentSearchItemChanged(int);
     void findStarted();
     void findFinished(bool);
+    void findError(const QString &error);
     void findResult(const LiteApi::FileSearchResult &result);
     void doReplace(const QString &text, const QList<Find::SearchResultItem> &items, bool preserveCase);
+    void searchTextChanged(const QString &text);
 protected:
     LiteApi::IApplication   *m_liteApp;
     QStackedWidget *m_widget;

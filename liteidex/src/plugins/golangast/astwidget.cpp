@@ -1,7 +1,7 @@
 /**************************************************************************
 ** This file is part of LiteIDE
 **
-** Copyright (c) 2011-2014 LiteIDE Team. All rights reserved.
+** Copyright (c) 2011-2016 LiteIDE Team. All rights reserved.
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
@@ -53,7 +53,8 @@ AstWidget::AstWidget(bool outline, LiteApi::IApplication *app, QWidget *parent) 
     QVBoxLayout *layout = new QVBoxLayout;
     layout->setMargin(0);
     layout->setSpacing(0);
-    m_tree = new SymbolTreeView;
+
+    m_tree = new SymbolTreeView;    
     m_filterEdit = new Utils::FilterLineEdit(200);
 
     m_model = new QStandardItemModel(this);
@@ -234,16 +235,18 @@ void AstWidget::gotoItemDefinition(GolangAstItem *item)
     }
     AstItemPos pos = item->m_posList.at(0);
     QFileInfo info(QDir(m_workPath),pos.fileName);
-    LiteApi::IEditor *editor = m_liteApp->fileManager()->openEditor(info.filePath());
-    if (!editor) {
-        return;
-    }
-    editor->widget()->setFocus();
-    LiteApi::ITextEditor *textEditor = LiteApi::findExtensionObject<LiteApi::ITextEditor*>(editor,"LiteApi.ITextEditor");
-    if (!textEditor) {
-        return;
-    }
-    textEditor->gotoLine(pos.line-1,pos.column,false);
+    LiteApi::gotoLine(m_liteApp,info.filePath(),pos.line-1,pos.column,true,true);
+    return;
+//    LiteApi::IEditor *editor = m_liteApp->fileManager()->openEditor(info.filePath());
+//    if (!editor) {
+//        return;
+//    }
+//    editor->widget()->setFocus();
+//    LiteApi::ITextEditor *textEditor = LiteApi::findExtensionObject<LiteApi::ITextEditor*>(editor,"LiteApi.ITextEditor");
+//    if (!textEditor) {
+//        return;
+//    }
+//    textEditor->gotoLine(pos.line-1,pos.column,true);
 }
 
 GolangAstItem *AstWidget::astItemFromIndex(QModelIndex index)
@@ -357,13 +360,13 @@ void AstWidget::updateModel(const QByteArray &data)
 
     m_model->clear();
 
-    QList<QByteArray> array = data.split('\n');
+    QList<QString> array = QString::fromUtf8(data).split('\n');
     QMap<int,QStandardItem*> items;
     QStringList indexFiles;
     bool ok = false;
     bool bmain = false;
     QMap<QString,GolangAstItem*> level1NameItemMap;
-    foreach (QByteArray line, array) {
+    foreach (QString line, array) {
         int pos = line.indexOf('@');
         QString tip;
         if (pos == 0) {
@@ -374,7 +377,7 @@ void AstWidget::updateModel(const QByteArray &data)
             line = line.left(pos);
         }
         line.trimmed();
-        QList<QByteArray> info = line.split(',');
+        QList<QString> info = line.split(',');
         if (info.size() < 3) {
             continue;
         }
@@ -428,8 +431,8 @@ void AstWidget::updateModel(const QByteArray &data)
             item->setToolTip(QString("%1 %2").arg(tagInfo(tag)).arg(name));
         }
         if (info.size() >= 4) {
-            foreach (QByteArray pos, info[3].split(';')) {
-                QList<QByteArray> ar = pos.split(':');
+            foreach (QString pos, info[3].split(';')) {
+                QList<QString> ar = pos.split(':');
                 if (ar.size() == 3) {
                     bool ok = false;
                     int index = ar[0].toInt(&ok);

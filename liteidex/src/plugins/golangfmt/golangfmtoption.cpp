@@ -1,7 +1,7 @@
 /**************************************************************************
 ** This file is part of LiteIDE
 **
-** Copyright (c) 2011-2014 LiteIDE Team. All rights reserved.
+** Copyright (c) 2011-2016 LiteIDE Team. All rights reserved.
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
@@ -42,22 +42,16 @@ GolangFmtOption::GolangFmtOption(LiteApi::IApplication *app,QObject *parent) :
 {
     ui->setupUi(m_widget);
 
-    bool goimports = m_liteApp->settings()->value(GOLANGFMT_USEGOIMPORTS,false).toBool();
-    bool diff = m_liteApp->settings()->value(GOLANGFMT_USEDIFF,true).toBool();
+    bool fixImports = m_liteApp->settings()->value(GOLANGFMT_FIXIMPORTS,false).toBool();
+    bool sortImports = m_liteApp->settings()->value(GOLANGFMT_SORTIMPORTS,true).toBool();
     bool autofmt = m_liteApp->settings()->value(GOLANGFMT_AUTOFMT,true).toBool();
     bool syncfmt = m_liteApp->settings()->value(GOLANGFMT_USESYNCFMT,true).toBool();
     int timeout = m_liteApp->settings()->value(GOLANGFMT_SYNCTIMEOUT,500).toInt();
-    if (!diff) {
-        autofmt = false;
-    }
-    ui->checkBoxUseGoimports->setChecked(goimports);
-    ui->checkBoxDiff->setChecked(diff);
+    ui->checkBoxUseGoimports->setChecked(fixImports);
+    ui->checkBoxSortImports->setChecked(sortImports);
     ui->checkBoxAutoFmt->setChecked(autofmt);
     ui->enableSyncCheckBox->setChecked(syncfmt);
     ui->syncTimeoutLineEdit->setText(QString("%1").arg(timeout));
-
-    connect(ui->checkBoxDiff,SIGNAL(toggled(bool)),ui->checkBoxAutoFmt,SLOT(setEnabled(bool)));
-    connect(ui->checkBoxDiff,SIGNAL(clicked(bool)),ui->checkBoxAutoFmt,SLOT(setChecked(bool)));
 }
 
 GolangFmtOption::~GolangFmtOption()
@@ -84,14 +78,11 @@ QString GolangFmtOption::mimeType() const
 void GolangFmtOption::apply()
 {
     bool goimports = ui->checkBoxUseGoimports->isChecked();
-    bool diff = ui->checkBoxDiff->isChecked();
+    bool sortImports = ui->checkBoxSortImports->isChecked();
     bool autofmt = ui->checkBoxAutoFmt->isChecked();
     bool syncfmt = ui->enableSyncCheckBox->isChecked();
-    if (!diff) {
-        autofmt = false;
-    }
-    m_liteApp->settings()->setValue(GOLANGFMT_USEGOIMPORTS,goimports);
-    m_liteApp->settings()->setValue(GOLANGFMT_USEDIFF,diff);
+    m_liteApp->settings()->setValue(GOLANGFMT_FIXIMPORTS,goimports);
+    m_liteApp->settings()->setValue(GOLANGFMT_SORTIMPORTS,sortImports);
     m_liteApp->settings()->setValue(GOLANGFMT_AUTOFMT,autofmt);
     m_liteApp->settings()->setValue(GOLANGFMT_USESYNCFMT,syncfmt);
     int timeout = ui->syncTimeoutLineEdit->text().toInt();

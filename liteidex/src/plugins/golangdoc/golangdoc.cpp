@@ -1,7 +1,7 @@
 /**************************************************************************
 ** This file is part of LiteIDE
 **
-** Copyright (c) 2011-2014 LiteIDE Team. All rights reserved.
+** Copyright (c) 2011-2016 LiteIDE Team. All rights reserved.
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
@@ -89,23 +89,26 @@ GolangDoc::GolangDoc(LiteApi::IApplication *app, QObject *parent) :
     m_godocProcess = new ProcessEx(this);
 
     m_findDocWidget = new FindDocWidget(m_liteApp);
-    m_docSearchWindowAct = m_liteApp->toolWindowManager()->addToolWindow(Qt::LeftDockWidgetArea,m_findDocWidget,"godoc/search",tr("Golang Doc Search"),true);
+    m_docSearchWindowAct = m_liteApp->toolWindowManager()->addToolWindow(Qt::BottomDockWidgetArea,m_findDocWidget,"godoc/search",tr("Golang Doc Search"),true);
 
     m_findApiWidget = new FindApiWidget(m_liteApp);
 
-    m_apiSearchWindowAct = m_liteApp->toolWindowManager()->addToolWindow(Qt::LeftDockWidgetArea,m_findApiWidget,"godoc/api",tr("Golang Api Index"),true);
+    m_apiSearchWindowAct = m_liteApp->toolWindowManager()->addToolWindow(Qt::BottomDockWidgetArea,m_findApiWidget,"godoc/api",tr("Golang Api Index"),true);
     connect(m_findApiWidget,SIGNAL(openApiUrl(QStringList)),this,SLOT(openApiUrl(QStringList)));
 
     m_docBrowser = new DocumentBrowser(m_liteApp,this);
     m_docBrowser->setName(tr("Godoc Search"));
 
     QStringList paths;
-    paths << m_liteApp->resourcePath()+"/golangdoc";
+    paths << m_liteApp->resourcePath()+"/packages/go/godoc";
     m_docBrowser->setSearchPaths(paths);
 
     m_godocFindComboBox = new QComboBox;
+    m_godocFindComboBox->setMinimumWidth(100);
     m_godocFindComboBox->setEditable(true);
+    //m_godocFindComboBox->setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Preferred);
     m_docBrowser->toolBar()->addSeparator();
+    m_docBrowser->toolBar()->addWidget(new QLabel(tr("Find Package:")));
     m_docBrowser->toolBar()->addWidget(m_godocFindComboBox);
 
     m_browserAct = m_liteApp->editorManager()->registerBrowser(m_docBrowser);
@@ -130,18 +133,16 @@ GolangDoc::GolangDoc(LiteApi::IApplication *app, QObject *parent) :
         connect(m_envManager,SIGNAL(currentEnvChanged(LiteApi::IEnv*)),this,SLOT(currentEnvChanged(LiteApi::IEnv*)));
     }
 
-    this->loadEnv();
-
     m_liteApp->extension()->addObject("LiteApi.IGolangDoc",this);
     //m_liteApp->extension()->addObject("LiteApi.IGolangApi",m_golangApiThread);
 
-    QString path = m_liteApp->resourcePath()+"/golangdoc/godoc.html";
+    QString path = m_liteApp->resourcePath()+"/packages/go/godoc/godoc.html";
     QFile file(path);
     if (file.open(QIODevice::ReadOnly)) {
         m_templateData = file.readAll();
         file.close();
     }
-    QString about = m_liteApp->resourcePath()+"/golangdoc/about.html";
+    QString about = m_liteApp->resourcePath()+"/packages/go/godoc/about.html";
     QFileInfo info(about);
     if(info.exists()) {
         m_templateData.replace("{about}",info.filePath());
@@ -176,8 +177,9 @@ void GolangDoc::currentEnvChanged(LiteApi::IEnv*)
 void GolangDoc::loadEnv()
 {    
     QProcessEnvironment env = LiteApi::getGoEnvironment(m_liteApp);//m_envManager->currentEnvironment();
-    m_goroot = env.value("GOROOT");
-
+    if (!LiteApi::hasGoEnv(env)) {
+        return;
+    }
     m_godocCmd = FileUtil::lookupGoBin("godoc",m_liteApp,false);
 
     m_findProcess->setEnvironment(env.toStringList());
@@ -190,6 +192,15 @@ void GolangDoc::loadEnv()
     }
 
     m_pathFileMap.clear();
+    loadGoroot();
+}
+
+void GolangDoc::loadGoroot()
+{
+    m_goroot = LiteApi::getGOROOT(m_liteApp);
+    if (m_goroot.isEmpty()) {
+        return;
+    }
     QDir dir(m_goroot);
     if (dir.exists() && dir.cd("doc")) {
         foreach(QFileInfo info, dir.entryInfoList(QStringList()<<"*.html",QDir::Files)) {
@@ -239,7 +250,7 @@ void GolangDoc::rebuildApiData()
 
 void GolangDoc::listPkg()
 {
-    QString cmd = LiteApi::liteide_stub_cmd(m_liteApp);
+    QString cmd = LiteApi::getGotools(m_liteApp);
     QStringList args;
     args << "docview" << "-mode=lite" << "-list=pkg";
     m_findData.clear();
@@ -248,7 +259,7 @@ void GolangDoc::listPkg()
 
 void GolangDoc::listCmd()
 {
-    QString cmd = LiteApi::liteide_stub_cmd(m_liteApp);
+    QString cmd = LiteApi::getGotools(m_liteApp);
     QStringList args;
     args << "docview" << "-mode" << "lite" << "-list"<<"cmd";
     m_findData.clear();
@@ -374,7 +385,7 @@ void GolangDoc::updateHtmlDoc(const QUrl &url, const QByteArray &ba, const QStri
     if (m_lastUrl.scheme() == "pdoc") {
         m_targetList.clear();
         QString pkgname = m_lastUrl.path();
-        QString goroot = LiteApi::getGoroot(m_liteApp);
+        QString goroot = LiteApi::getGOROOT(m_liteApp);
         QFileInfo i1(QFileInfo(goroot,"src/cmd").filePath(),pkgname);
         if (i1.exists()) {
             m_targetList.append(i1.filePath());
@@ -382,8 +393,11 @@ void GolangDoc::updateHtmlDoc(const QUrl &url, const QByteArray &ba, const QStri
         QFileInfo i2(QFileInfo(goroot,"src/pkg").filePath(),pkgname);
         if (i2.exists()) {
             m_targetList.append(i2.filePath());
+        } else {
+            QFileInfo i3(QFileInfo(goroot,"src").filePath(),pkgname);
+            m_targetList.append(i3.filePath());
         }
-        foreach(QString path,LiteApi::getGopathList(m_liteApp,false)) {
+        foreach(QString path,LiteApi::getGOPATH(m_liteApp,false)) {
             QFileInfo info(QFileInfo(path,"src").filePath(),pkgname);
             if (info.exists()) {
                 m_targetList.append(info.filePath());
@@ -421,7 +435,7 @@ void GolangDoc::openUrlList(const QUrl &url)
     if (url.scheme() != "list") {
         return;
     }
-    QString cmd = LiteApi::liteide_stub_cmd(m_liteApp);
+    QString cmd = LiteApi::getGotools(m_liteApp);
     QStringList args;
     args << "docview" << "-mode=html"<< QString("-list=%1").arg(url.path());
     m_godocData.clear();
@@ -433,7 +447,7 @@ void GolangDoc::openUrlFind(const QUrl &url)
     if (url.scheme() != "find") {
         return;
     }
-    QString cmd = LiteApi::liteide_stub_cmd(m_liteApp);
+    QString cmd = LiteApi::getGotools(m_liteApp);
     QStringList args;
     args << "docview" << "-mode=html" << "-find" << url.path();
     m_godocData.clear();
@@ -460,16 +474,31 @@ void GolangDoc::openUrlPdoc(const QUrl &url)
     QStringList args;
     //check additional path
     bool local = false;
-    if (QDir(url.path()).exists()) {
-        local = true;
-        if (url.path().length() >= 2 && url.path().right(2) == "..") {
-            local = false;
+    QDir dir(url.path());
+    if (dir.exists()) {
+        QStringList nameFilter("*.go");
+        if (!dir.entryList(nameFilter).isEmpty()) {
+            local = true;
         }
     }
-
     if (local) {
-        m_godocProcess->setWorkingDirectory(url.path());
-        args << "-html=true" << ".";
+        QStringList gopathList = LiteApi::getGOPATH(m_liteApp,true);
+        QStringList pkgList;
+        foreach (QString gopath, gopathList) {
+            gopath = QDir::fromNativeSeparators(QDir::cleanPath(gopath));
+            QString urlpath = QDir::fromNativeSeparators(QDir::cleanPath(url.path()));
+            if (urlpath.startsWith(gopath+"/src/")) {
+                pkgList << urlpath.mid(gopath.length()+5);
+            }
+        }
+        if (pkgList.size() == 1) {
+            m_godocProcess->setWorkingDirectory(m_goroot);
+            m_openUrl.setPath(pkgList.at(0));
+            args << "-html=true" << pkgList.at(0);
+        } else {
+            m_godocProcess->setWorkingDirectory(url.path());
+            args << "-html=true" << ".";
+        }
     } else {
         m_godocProcess->setWorkingDirectory(m_goroot);
         args << "-html=true" << url.path();
@@ -538,6 +567,9 @@ void GolangDoc::openUrlFile(const QUrl &url)
 
 QUrl GolangDoc::parserUrl(const QUrl &_url)
 {
+    if (m_goroot.isEmpty()) {
+        loadGoroot();
+    }
     QUrl url = _url;
     if (url.path().isEmpty() && !url.fragment().isEmpty()) {
         return url;
@@ -605,6 +637,26 @@ QUrl GolangDoc::parserUrl(const QUrl &_url)
                     break;
                 }
             }
+        } else if (url.path().indexOf("/src/pkg/target/") == 0 && m_lastUrl.scheme() == "pdoc") {
+            QString name = url.path().right(url.path().length()-16);
+            foreach (QString path, m_targetList) {
+                QFileInfo info(path,name);
+                if (info.exists()) {
+                    url.setScheme("file");
+                    url.setPath(info.filePath());
+                    break;
+                }
+            }
+        } else if (url.path().indexOf("/src/target/") == 0 && m_lastUrl.scheme() == "pdoc") {
+            QString name = url.path().right(url.path().length()-12);
+            foreach (QString path, m_targetList) {
+                QFileInfo info(path,name);
+                if (info.exists()) {
+                    url.setScheme("file");
+                    url.setPath(info.filePath());
+                    break;
+                }
+            }
         } else {
             QFileInfo info;
             info.setFile(url.path());
@@ -613,9 +665,19 @@ QUrl GolangDoc::parserUrl(const QUrl &_url)
             }
             if (!info.exists()) {
                 QString path = url.path();
-
-                if (path.at(0) == '/') {
-                    info.setFile(QDir(m_goroot),path.right(path.length()-1));
+                if (path.startsWith("/")) {
+                    if (path.endsWith(".go")) {
+                        QStringList gopathList = LiteApi::getGOPATH(m_liteApp,true);
+                        foreach (QString gopath, gopathList) {
+                            QFileInfo _info(gopath+path);
+                            if (_info.exists()) {
+                                info.setFile(_info.filePath());
+                                break;
+                            }
+                        }
+                    } else {
+                        info.setFile(QDir(m_goroot),path.right(path.length()-1));
+                    }
                 } else if (m_lastUrl.scheme() == "file") {
                     info.setFile(QFileInfo(m_lastUrl.toLocalFile()).absoluteDir(),path);
                 }
@@ -643,12 +705,12 @@ QUrl GolangDoc::parserUrl(const QUrl &_url)
             if (info.exists() && info.isFile()) {
                 url.setScheme("file");
                 url.setPath(QDir::cleanPath(info.filePath()));
-            } else if(url.path().at(url.path().length()-1) != '/') {
+            } else {
                 url.setScheme("pdoc");
                 if (info.exists()) {
                     url.setPath(info.filePath());
                 } else {
-                    if (m_lastUrl.scheme() == "pdoc") {
+                    if (m_lastUrl.scheme() == "pdoc" && url.path().endsWith('/')) {
                         url.setPath(QDir::cleanPath(m_lastUrl.path()+"/"+url.path()));
                     } else {
                         url.setPath(url.path());

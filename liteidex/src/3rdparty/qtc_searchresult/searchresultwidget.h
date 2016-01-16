@@ -58,10 +58,13 @@ public:
     ~SearchResultWidget();
 
     void setInfo(const QString &label, const QString &toolTip, const QString &term);
+    QString searchText() const;
 
     void addResult(const QString &fileName, int lineNumber, const QString &lineText,
                    int searchTermStart, int searchTermLength, const QVariant &userData = QVariant());
-    void addResults(const QList<SearchResultItem> &items, AddMode mode);
+    void addResults(const QList<SearchResultItem> &items, AddMode mode, bool revert = false);
+
+    void setRevertMode(const QString &replaceText, const QString &searchText);
 
     int count() const;
 
@@ -90,7 +93,9 @@ public:
     void goToPrevious();
 
     void restart();
+    void clear();
 
+    void setCancelSupported(bool supported);
     void setSearchAgainSupported(bool supported);
     void setSearchAgainEnabled(bool enabled);
     void setPreserveCaseSupported(bool enabled);
@@ -117,10 +122,13 @@ private slots:
     void handleReplaceButton();
     void cancel();
     void searchAgain();
+    void showReplaceMode();
 
 private:
     QList<SearchResultItem> checkedItems() const;
-    void updateMatchesFoundLabel();
+    void updateMatchesFoundLabel(bool revert);
+    void beginMatchesFoundLabel();
+    void endMatchesFoundLabel();
 
     SearchResultTreeView *m_searchResultTreeView;
     int m_count;
@@ -128,14 +136,16 @@ private:
     QFrame *m_messageWidget;
 //    Core::InfoBar m_infoBar;
 //    Core::InfoBarDisplay m_infoBarDisplay;
-    bool m_isShowingReplaceUI;
     QLabel *m_replaceLabel;
     QLineEdit *m_replaceTextEdit;
     QToolButton *m_replaceButton;
     QToolButton *m_searchAgainButton;
     QCheckBox *m_preserveCaseCheck;
+    QToolButton *m_showReplaceModeButton;
+    bool m_isShowingReplaceUI;
     bool m_searchAgainSupported;
     bool m_preserveCaseSupported;
+    bool m_cancelSupported;
     QWidget *m_descriptionContainer;
     QLabel *m_label;
     QLabel *m_searchTerm;

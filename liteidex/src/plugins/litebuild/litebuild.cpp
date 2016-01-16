@@ -1,7 +1,7 @@
 /**************************************************************************
 ** This file is part of LiteIDE
 **
-** Copyright (c) 2011-2014 LiteIDE Team. All rights reserved.
+** Copyright (c) 2011-2016 LiteIDE Team. All rights reserved.
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
@@ -30,6 +30,8 @@
 #include "buildconfigdialog.h"
 #include "litedebugapi/litedebugapi.h"
 #include "liteeditorapi/liteeditorapi.h"
+#include "qtc_texteditor/basetextdocumentlayout.h"
+#include "../liteeditor/liteeditor_global.h"
 #include <QToolBar>
 #include <QComboBox>
 #include <QAction>
@@ -42,6 +44,7 @@
 #include <QStandardItemModel>
 #include <QStandardItem>
 #include <QLabel>
+#include <QCheckBox>
 #include <QToolButton>
 #include <QTime>
 #include <QDebug>
@@ -54,6 +57,33 @@
      #define new DEBUG_NEW
 #endif
 //lite_memory_check_end
+/*
+### liteide app info
+
+    LITEIDE_BIN_DIR
+    LITEIDE_RES_DIR
+
+### build dir info
+
+    BUILD_DIR_PATH
+    BUILD_DIR_NAME
+    BUILD_DIR_BASENAME
+    BUILD_DIR_GONAME
+
+### editor file info
+
+    EDITOR_FILE_PATH
+    EDITOR_FILE_NAME
+    EDITOR_FILE_BASENAME
+    EDITOR_FILE_SUFFIX
+
+### editor dir info
+
+    EDITOR_DIR_PATH
+    EDITOR_DIR_NAME
+    EDITOR_DIR_BASENAME
+    EDITOR_DIR_GONAME
+*/
 
 enum {
     INPUT_ACTION = 0,
@@ -75,6 +105,21 @@ enum {
     ID_ACTIVATEOUTPUT_CHECK = 11
 };
 
+struct BuildBarInfo {
+    BuildBarInfo() : build(0), buildMenu(0)
+    {
+    }
+    ~BuildBarInfo()
+    {
+        if (buildMenu) {
+            buildMenu->deleteLater();
+        }
+    }
+    LiteApi::IBuild *build;
+    QMenu           *buildMenu;
+    QList<QAction*>  toolbarActions;
+};
+
 LiteBuild::LiteBuild(LiteApi::IApplication *app, QObject *parent) :
     LiteApi::ILiteBuild(parent),
     m_liteApp(app),
@@ -82,16 +127,18 @@ LiteBuild::LiteBuild(LiteApi::IApplication *app, QObject *parent) :
     m_build(0),
     m_envManager(0)
 {
+    m_bDynamicBuild = true;
+    m_bLockBuildRoot = false;
     m_nullMenu = new QMenu;
     if (m_buildManager->initWithApp(m_liteApp)) {
         m_buildManager->load(m_liteApp->resourcePath()+"/litebuild");
         m_liteApp->extension()->addObject("LiteApi.IBuildManager",m_buildManager);
     }    
     m_bProjectBuild = false;
-//    m_toolBar = m_liteApp->actionManager()->loadToolBar("toolbar/build");
-//    if (!m_toolBar) {
-//        m_toolBar = m_liteApp->actionManager()->insertToolBar("toolbar/build",tr("Build ToolBar"));
-//    }
+
+    m_buildToolBar = m_liteApp->actionManager()->insertToolBar("toolbar/build",tr("Build Toolbar"),"toolbar/build");
+    m_liteApp->actionManager()->insertViewMenu(LiteApi::ViewMenuToolBarPos,m_buildToolBar->toggleViewAction());
+
     m_buildMenu = m_liteApp->actionManager()->loadMenu("menu/build");
     if (!m_buildMenu) {
         m_buildMenu = m_liteApp->actionManager()->insertMenu("menu/build",tr("&Build"),"menu/help");
@@ -116,9 +163,16 @@ LiteBuild::LiteBuild(LiteApi::IApplication *app, QObject *parent) :
     m_configAct = new QAction(QIcon("icon:litebuild/images/config.png"),tr("Build Configuration..."),this);
     actionContext->regAction(m_configAct,"Config","");
 
+    m_buildToolBar->addAction(m_configAct);
+    m_buildToolBar->addSeparator();
+
+    m_checkBoxLockBuild = new QCheckBox;
+
+    m_buildToolBar->addWidget(m_checkBoxLockBuild);
+    m_buildToolBar->addSeparator();
+
     m_process = new ProcessEx(this);
     m_output = new TextOutput(m_liteApp);
-    m_output->setMaxLine(2048);
 
     m_stopAct = new QAction(tr("Stop Action"),this);
     m_stopAct->setIcon(QIcon("icon:litebuild/images/stopaction.png"));
@@ -131,6 +185,7 @@ LiteBuild::LiteBuild(LiteApi::IApplication *app, QObject *parent) :
     m_fmctxExecuteFileAct = new QAction(tr("Execute File"),this);
     connect(m_fmctxExecuteFileAct,SIGNAL(triggered()),this,SLOT(fmctxExecuteFile()));
 
+    m_fmctxGoLockBuildAct = new QAction(tr("Lock Build Path"),this);
     m_fmctxGoBuildAct = new QAction(tr("Go Build"),this);
     m_fmctxGoBuildAct->setData("build -v ./...");
     m_fmctxGoInstallAct = new QAction(tr("Go Install"),this);
@@ -139,10 +194,14 @@ LiteBuild::LiteBuild(LiteApi::IApplication *app, QObject *parent) :
     m_fmctxGoTestAct->setData("test -v ./...");
     m_fmctxGoCleanAct = new QAction(tr("Go Clean"),this);
     m_fmctxGoCleanAct->setData("clean -i -x ./...");
+    connect(m_fmctxGoLockBuildAct,SIGNAL(triggered()),this,SLOT(fmctxGoLockBuild()));
     connect(m_fmctxGoBuildAct,SIGNAL(triggered()),this,SLOT(fmctxGoTool()));
     connect(m_fmctxGoInstallAct,SIGNAL(triggered()),this,SLOT(fmctxGoTool()));
     connect(m_fmctxGoTestAct,SIGNAL(triggered()),this,SLOT(fmctxGoTool()));
     connect(m_fmctxGoCleanAct,SIGNAL(triggered()),this,SLOT(fmctxGoTool()));
+
+    m_fmctxGoFmtAct = new QAction(tr("Go Fmt"),this);
+    connect(m_fmctxGoFmtAct,SIGNAL(triggered()),this,SLOT(fmctxGofmt()));
 
     connect(m_stopAct,SIGNAL(triggered()),this,SLOT(stopAction()));
     connect(m_clearAct,SIGNAL(triggered()),m_output,SLOT(clear()));
@@ -154,25 +213,48 @@ LiteBuild::LiteBuild(LiteApi::IApplication *app, QObject *parent) :
     m_buildMenu->addSeparator();
 
     //m_liteApp->outputManager()->addOutuput(m_output,tr("Build Output"));
+    m_outputLineWrapAct = new QAction(tr("Line Wrap"),this);
+    m_outputLineWrapAct->setCheckable(true);
+    connect(m_outputLineWrapAct,SIGNAL(toggled(bool)),this,SLOT(setOutputLineWrap(bool)));
+
+    m_outputAutoClearAct = new QAction(tr("Auto Clear"),this);
+    m_outputAutoClearAct->setCheckable(true);
+    connect(m_outputAutoClearAct,SIGNAL(triggered(bool)),this,SLOT(setOutputAutoClear(bool)));
+
+    bool bLineWrap = m_liteApp->settings()->value(LITEBUILD_OUTPUTLINEWRAP,false).toBool();
+    m_bOutputAutoClear = m_liteApp->settings()->value(LITEBUILD_OUTPUTAUTOCLEAR,true).toBool();
+
+    m_output->setLineWrap(bLineWrap);
+    m_outputLineWrapAct->setChecked(bLineWrap);
+    m_outputAutoClearAct->setChecked(m_bOutputAutoClear);
+
+    m_outputMenu = new QMenu(tr("Setup"));
+    m_outputMenu->setIcon(QIcon(":/images/setup.png"));
+    m_outputMenu->addAction(m_outputAutoClearAct);
+    m_outputMenu->addAction(m_outputLineWrapAct);
+
     m_outputAct = m_liteApp->toolWindowManager()->addToolWindow(Qt::BottomDockWidgetArea,
                                                                 m_output,"buildoutput",
                                                                 tr("Build Output"),
                                                                 false,
-                                                                QList<QAction*>() << m_stopAct << m_clearAct);
+                                                                QList<QAction*>() << m_stopAct << m_clearAct << m_outputMenu->menuAction());
 
     connect(m_liteApp,SIGNAL(loaded()),this,SLOT(appLoaded()));
+    connect(m_liteApp->optionManager(),SIGNAL(applyOption(QString)),this,SLOT(applyOption(QString)));
     //connect(m_liteApp->projectManager(),SIGNAL(currentProjectChanged(LiteApi::IProject*)),this,SLOT(currentProjectChanged(LiteApi::IProject*)));
     connect(m_liteApp->editorManager(),SIGNAL(editorCreated(LiteApi::IEditor*)),this,SLOT(editorCreated(LiteApi::IEditor*)));
     connect(m_liteApp->editorManager(),SIGNAL(currentEditorChanged(LiteApi::IEditor*)),this,SLOT(currentEditorChanged(LiteApi::IEditor*)));
-
     connect(m_process,SIGNAL(extOutput(QByteArray,bool)),this,SLOT(extOutput(QByteArray,bool)));
     connect(m_process,SIGNAL(extFinish(bool,int,QString)),this,SLOT(extFinish(bool,int,QString)));
     connect(m_output,SIGNAL(dbclickEvent(QTextCursor)),this,SLOT(dbclickBuildOutput(QTextCursor)));
     connect(m_output,SIGNAL(enterText(QString)),this,SLOT(enterTextBuildOutput(QString)));
     connect(m_configAct,SIGNAL(triggered()),this,SLOT(config()));
     connect(m_liteApp->fileManager(),SIGNAL(aboutToShowFolderContextMenu(QMenu*,LiteApi::FILESYSTEM_CONTEXT_FLAG,QFileInfo)),this,SLOT(aboutToShowFolderContextMenu(QMenu*,LiteApi::FILESYSTEM_CONTEXT_FLAG,QFileInfo)));
+    connect(m_checkBoxLockBuild,SIGNAL(toggled(bool)),this,SLOT(lockBuildRoot(bool)));
 
     m_liteAppInfo.insert("LITEAPPDIR",m_liteApp->applicationPath());
+    m_liteAppInfo.insert("LITEIDE_BIN_DIR",m_liteApp->applicationPath());
+    m_liteAppInfo.insert("LITEIDE_RES_DIR",m_liteApp->resourcePath());
 
     m_liteApp->extension()->addObject("LiteApi.ILiteBuild",this);
 
@@ -195,12 +277,20 @@ LiteBuild::LiteBuild(LiteApi::IApplication *app, QObject *parent) :
             actionContext->regAction(act,act->objectName(),shortcuts.join(";"));
         }
     }    
+
+    m_envManager = LiteApi::getEnvManager(m_liteApp);
+    if (m_envManager) {
+        connect(m_envManager,SIGNAL(currentEnvChanged(LiteApi::IEnv*)),this,SLOT(currentEnvChanged(LiteApi::IEnv*)));
+    }
+    applyOption(OPTION_LITEEDITOR);
 }
 
 LiteBuild::~LiteBuild()
 {
+    qDeleteAll(m_buildBarInfoMap);
     stopAction();
     delete m_output;
+    delete m_outputMenu;
     if (!m_nullMenu->parent()) {
         delete m_nullMenu;
     }
@@ -252,7 +342,7 @@ bool LiteBuild::buildTests()
 QString LiteBuild::envValue(LiteApi::IBuild *build, const QString &value)
 {
     QString buildFilePath;
-    if (m_buildTag.isEmpty()) {
+    if (m_buildRootPath.isEmpty()) {
         LiteApi::IEditor *editor = m_liteApp->editorManager()->currentEditor();
         if (editor) {
             QString filePath = editor->filePath();
@@ -293,7 +383,7 @@ QString LiteBuild::envToValue(const QString &value,QMap<QString,QString> &liteEn
 
 QString LiteBuild::buildTag() const
 {
-    return m_buildTag;
+    return m_buildRootPath;
 }
 
 LiteApi::IBuildManager *LiteBuild::buildManager() const
@@ -314,11 +404,6 @@ void LiteBuild::appendOutput(const QString &str, const QBrush &brush, bool activ
 
 void LiteBuild::appLoaded()
 {
-    m_envManager = LiteApi::getEnvManager(m_liteApp);
-    if (m_envManager) {
-        connect(m_envManager,SIGNAL(currentEnvChanged(LiteApi::IEnv*)),this,SLOT(currentEnvChanged(LiteApi::IEnv*)));
-        currentEnvChanged(m_envManager->currentEnv());
-    }
 }
 
 void LiteBuild::debugBefore()
@@ -332,19 +417,20 @@ void LiteBuild::config()
     }
 
     BuildConfigDialog dlg;
-    dlg.setBuild(m_build->id(),m_buildTag);
+    dlg.setBuild(m_build->id(),m_buildRootPath);
     dlg.setModel(m_liteideModel,m_configModel,m_customModel);
     if (dlg.exec() == QDialog::Accepted) {
         QString key;
-        if (!m_buildTag.isEmpty()) {
-            key = "litebuild-custom/"+m_buildTag;
+        if (!m_buildRootPath.isEmpty()) {
+            key = "litebuild-custom/"+m_buildRootPath;
         }
         for (int i = 0; i < m_customModel->rowCount(); i++) {
             QStandardItem *name = m_customModel->item(i,0);
             QStandardItem *value = m_customModel->item(i,1);
             //m_customMap.insert(name->text(),value->text());
+            QString id = name->data().toString();
             if (!key.isEmpty()) {
-                m_liteApp->settings()->setValue(key+"#"+name->text(),value->text());
+                m_liteApp->settings()->setValue(key+"#"+id,value->text());
             }
         }
     }
@@ -381,12 +467,15 @@ void LiteBuild::aboutToShowFolderContextMenu(QMenu *menu, LiteApi::FILESYSTEM_CO
             if (!menu->actions().isEmpty()) {
                 act = menu->actions().at(0);
             }
+            menu->insertAction(act,m_fmctxGoLockBuildAct);
+            menu->insertSeparator(act);
             menu->insertAction(act,m_fmctxGoBuildAct);
             menu->insertAction(act,m_fmctxGoInstallAct);
             if (hasTest) {
                 menu->insertAction(act,m_fmctxGoTestAct);
             }
             menu->insertAction(act,m_fmctxGoCleanAct);
+            menu->insertAction(act,m_fmctxGoFmtAct);
             menu->insertSeparator(act);
         }
     }
@@ -399,6 +488,12 @@ void LiteBuild::fmctxExecuteFile()
         this->stopAction();
         this->executeCommand(cmd,QString(),m_fmctxInfo.path(),true,true,false);
     }
+}
+
+void LiteBuild::fmctxGoLockBuild()
+{
+    QString buildPath = m_fmctxInfo.filePath();
+    this->lockBuildRootByMimeType(buildPath,"text/x-gosrc");
 }
 
 void LiteBuild::fmctxGoTool()
@@ -419,13 +514,71 @@ void LiteBuild::fmctxGoTool()
     }
 }
 
+void LiteBuild::fmctxGofmt()
+{
+    QString args = "gofmt -l -w -sortimports=true .";
+    QString cmd = LiteApi::getGotools(m_liteApp);
+    m_outputRegex = "(\\w?:?[\\w\\d_\\-\\\\/\\.]+):(\\d+):";
+    m_process->setUserData(ID_REGEXP,m_outputRegex);
+    if (!cmd.isEmpty()) {
+        m_liteApp->editorManager()->saveAllEditors();
+        this->stopAction();
+        this->executeCommand(cmd,args,m_fmctxInfo.filePath(),true,true,true,false);
+    }
+}
+
+void LiteBuild::applyOption(QString /*opt*/)
+{
+//    if (opt == OPTION_LITEEDITOR) {
+//        QFont font = m_output->font();
+//        font.setFamily(m_liteApp->settings()->value(EDITOR_FAMILY,font.family()).toString());
+//        m_output->setFont(font);
+//    }
+}
+
+void LiteBuild::lockBuildRoot(bool b)
+{
+    m_bLockBuildRoot = b;
+    if (!b) {
+        this->currentEditorChanged(m_liteApp->editorManager()->currentEditor());
+    }
+}
+
+void LiteBuild::setOutputLineWrap(bool b)
+{
+    m_output->setLineWrap(b);
+    m_liteApp->settings()->setValue(LITEBUILD_OUTPUTLINEWRAP,b);
+}
+
+void LiteBuild::setOutputAutoClear(bool b)
+{
+    m_bOutputAutoClear = b;
+    m_liteApp->settings()->setValue(LITEBUILD_OUTPUTAUTOCLEAR,b);
+}
+
+bool LiteBuild::isLockBuildRoot() const
+{
+    return m_bLockBuildRoot;
+}
+
+QString LiteBuild::currentBuildPath() const
+{
+    return m_buildRootPath;
+}
+
 void LiteBuild::currentEnvChanged(LiteApi::IEnv*)
 {
-    m_process->setEnvironment(m_envManager->currentEnvironment().toStringList());
-    LiteApi::IEnv *env = m_envManager->currentEnv();
-    if (!env) {
+    LiteApi::IEnv *ienv = m_envManager->currentEnv();
+    if (!ienv) {
         return;
     }
+    QProcessEnvironment env =  LiteApi::getGoEnvironment(m_liteApp);
+    if (!LiteApi::hasGoEnv(env)) {
+        return;
+    }
+
+    m_liteApp->appendLog("LiteBuild","go environment changed");
+    m_process->setEnvironment(env.toStringList());
 
     bool b = m_liteApp->settings()->value(LITEBUILD_ENVCHECK,true).toBool();
     if (!b) {
@@ -435,14 +588,14 @@ void LiteBuild::currentEnvChanged(LiteApi::IEnv*)
     QString gobin = FileUtil::lookupGoBin("go",m_liteApp,true);
     if (gobin.isEmpty()) {
         m_output->updateExistsTextColor();
-        m_output->appendTag(tr("Current environment change id \"%1\"").arg(env->id())+"\n");
+        m_output->appendTag(tr("Current environment change id \"%1\"").arg(ienv->id())+"\n");
         m_output->append("go bin not found!",Qt::red);
         return;
     }
     if (!m_process->isRunning()) {
         m_output->updateExistsTextColor();
-        m_output->appendTag(tr("Current environment change id \"%1\"").arg(env->id())+"\n");
-        this->executeCommand(gobin,"env",LiteApi::getGoroot(m_liteApp),false,false);
+        m_output->appendTag(tr("Current environment change id \"%1\"").arg(ienv->id())+"\n");
+        this->executeCommand(gobin,"env",LiteApi::getGOROOT(m_liteApp),false,false);
     }
 }
 
@@ -492,32 +645,32 @@ void LiteBuild::reloadProject()
     }
 }
 
-void LiteBuild::currentProjectChanged(LiteApi::IProject *project)
+void LiteBuild::currentProjectChanged(LiteApi::IProject */*project*/)
 {
     return;
-    m_buildTag.clear();
-    m_projectInfo.clear();
-    m_targetInfo.clear();
-    m_bProjectBuild = false;
-    if (project) {
-        connect(project,SIGNAL(reloaded()),this,SLOT(reloadProject()));
-        loadProjectInfo(project->filePath());
-        m_targetInfo = project->targetInfo();
-        m_buildTag = project->filePath();
-        LiteApi::IBuild *build = findProjectBuild(project);
-        if (build) {
-            m_bProjectBuild = true;
-            setCurrentBuild(build);
-        } else {
-            currentEditorChanged(m_liteApp->editorManager()->currentEditor());
-        }
-    } else {
-        LiteApi::IBuild *build = findProjectBuildByEditor(m_liteApp->editorManager()->currentEditor());
-        if (build) {
-            m_bProjectBuild = true;
-        }
-        setCurrentBuild(build);
-    }
+//    m_buildRootPath.clear();
+//    m_projectInfo.clear();
+//    m_targetInfo.clear();
+//    m_bProjectBuild = false;
+//    if (project) {
+//        connect(project,SIGNAL(reloaded()),this,SLOT(reloadProject()));
+//        loadProjectInfo(project->filePath());
+//        m_targetInfo = project->targetInfo();
+//        m_buildRootPath = project->filePath();
+//        LiteApi::IBuild *build = findProjectBuild(project);
+//        if (build) {
+//            m_bProjectBuild = true;
+//            setCurrentBuild(build);
+//        } else {
+//            currentEditorChanged(m_liteApp->editorManager()->currentEditor());
+//        }
+//    } else {
+//        LiteApi::IBuild *build = findProjectBuildByEditor(m_liteApp->editorManager()->currentEditor());
+//        if (build) {
+//            m_bProjectBuild = true;
+//        }
+//        setCurrentBuild(build);
+//    }
 }
 
 QMap<QString,QString> LiteBuild::liteideEnvMap() const
@@ -527,6 +680,11 @@ QMap<QString,QString> LiteBuild::liteideEnvMap() const
     while(p.hasNext()) {
         p.next();
         env.insert(p.key(),p.value());
+    }
+    QMapIterator<QString,QString> b(m_buildInfo);
+    while(b.hasNext()) {
+        b.next();
+        env.insert(b.key(),b.value());
     }
     QMapIterator<QString,QString> e(m_editorInfo);
     while(e.hasNext()) {
@@ -551,7 +709,7 @@ LiteApi::TargetInfo LiteBuild::getTargetInfo()
     if (!lists.isEmpty()) {
         BuildTarget *target = lists.first();
 
-        QMap<QString,QString> env = buildEnvMap(m_build,m_buildTag);
+        QMap<QString,QString> env = buildEnvMap(m_build,m_buildRootPath);
         QProcessEnvironment sysenv = LiteApi::getGoEnvironment(m_liteApp);
         info.cmd = this->envToValue(target->cmd(),env,sysenv);
         info.args = this->envToValue(target->args(),env,sysenv);
@@ -575,7 +733,7 @@ QMap<QString,QString> LiteBuild::buildEnvMap(LiteApi::IBuild *build, const QStri
         QString name = cf->name();
         QString value = cf->value();
         if (!configkey.isEmpty()) {
-            value = m_liteApp->settings()->value(configkey+"#"+name,value).toString();
+            value = m_liteApp->settings()->value(configkey+"#"+cf->id(),value).toString();
         }
         QMapIterator<QString,QString> m(env);
         while(m.hasNext()) {
@@ -588,7 +746,7 @@ QMap<QString,QString> LiteBuild::buildEnvMap(LiteApi::IBuild *build, const QStri
         QString name = cf->name();
         QString value = cf->value();
         if (!customkey.isEmpty()) {
-            value = m_liteApp->settings()->value(customkey+"#"+name,value).toString();
+            value = m_liteApp->settings()->value(customkey+"#"+cf->id(),value).toString();
         }
         QMapIterator<QString,QString> m(env);
         while(m.hasNext()) {
@@ -602,7 +760,7 @@ QMap<QString,QString> LiteBuild::buildEnvMap(LiteApi::IBuild *build, const QStri
 
 QMap<QString,QString> LiteBuild::buildEnvMap() const
 {
-    return buildEnvMap(m_build,m_buildTag);
+    return buildEnvMap(m_build,m_buildRootPath);
     /*
     LiteApi::IBuild *build = m_build;
     QString buildFilePath = m_buildFilePath;
@@ -674,28 +832,32 @@ void LiteBuild::updateBuildConfig(IBuild *build)
         m_configModel->removeRows(0,m_configModel->rowCount());
         m_customModel->removeRows(0,m_customModel->rowCount());
         QString customkey;
-        if (!m_buildTag.isEmpty()) {
-            customkey = "litebuild-custom/"+m_buildTag;
+        if (!m_buildRootPath.isEmpty()) {
+            customkey = "litebuild-custom/"+m_buildRootPath;
         }
         QString configkey = "litebuild-config/"+build->id();
         foreach(LiteApi::BuildCustom *cf, build->customList()) {
             QString name = cf->name();
             QString value = cf->value();
             if (!customkey.isEmpty()) {
-                value = m_liteApp->settings()->value(customkey+"#"+name,value).toString();
+                value = m_liteApp->settings()->value(customkey+"#"+cf->id(),value).toString();
             }
+            QStandardItem *item = new QStandardItem(name);
+            item->setData(cf->id());
             m_customModel->appendRow(QList<QStandardItem*>()
-                                     << new QStandardItem(name)
+                                     << item
                                      << new QStandardItem(value));
         }
         foreach(LiteApi::BuildConfig *cf, build->configList()) {
             QString name = cf->name();
             QString value = cf->value();
             if (!configkey.isEmpty()) {
-                value = m_liteApp->settings()->value(configkey+"#"+name,value).toString();
+                value = m_liteApp->settings()->value(configkey+"#"+cf->id(),value).toString();
             }
+            QStandardItem *item = new QStandardItem(name);
+            item->setData(cf->id());
             m_configModel->appendRow(QList<QStandardItem*>()
-                                     << new QStandardItem(name)
+                                     << item
                                      << new QStandardItem(value));
         }
     }
@@ -717,44 +879,62 @@ void LiteBuild::setCurrentBuild(LiteApi::IBuild *build)
 
     m_outputRegex.clear();
 }
+/*
+BUILD_DIR_PATH
+BUILD_DIR_NAME
+BUILD_DIR_BASENAME
+BUILD_DIR_GONAME
 
+EDITOR_FILE_PATH
+EDITOR_FILE_NAME
+EDITOR_FILE_BASENAME
+EDITOR_FILE_SUFFIX
+
+EDITOR_DIR_PATH
+EDITOR_DIR_NAME
+EDITOR_DIR_BASENAME
+EDITOR_DIR_GONAME
+*/
 void LiteBuild::loadEditorInfo(const QString &filePath)
 {
     m_editorInfo.clear();
     if (filePath.isEmpty()) {
         return;
     }
-    //m_editorInfo = editor->editorInfo();
     QFileInfo info(filePath);
-    /*
-EDITOR_BASENAME
-EDITOR_NAME
-EDITOR_SUFFIX
-EDITOR_PATH
-EDITOR_DIR
-EDITOR_DIRNAME
-EDITOR_TARGETNAME
-EDITOR_TARGETATH
-    */
-    m_buildTag = info.path();
-    m_editorInfo.insert("EDITOR_BASENAME",info.baseName());
-    m_editorInfo.insert("EDITOR_NAME",info.fileName());
-    m_editorInfo.insert("EDITOR_SUFFIX",info.suffix());
-    m_editorInfo.insert("EDITOR_PATH",info.filePath());
-    m_editorInfo.insert("EDITOR_DIR",info.path());
-    m_editorInfo.insert("EDITOR_DIRNAME",QFileInfo(info.path()).fileName());
-    m_editorInfo.insert("EDITOR_DIRNAME_GO",QFileInfo(info.path()).fileName().replace(" ","_"));
-//    QString target = info.fileName();
-//    if (!info.suffix().isEmpty()) {
-//        target = target.left(target.length()-info.suffix().length()-1);
-//    }
-//#ifdef Q_OS_WIN
-//    m_editorInfo.insert("EDITOR_TARGETNAME",target+".exe");
-//    m_editorInfo.insert("EDITOR_TARGETPATH",QFileInfo(info.path(),target+".exe").filePath());
-//#else
-//    m_editorInfo.insert("EDITOR_TARGETNAME",target);
-//    m_editorInfo.insert("EDITOR_TARGETPATH",QFileInfo(info.path(),target).filePath());
-//#endif
+    m_editorInfo.insert("EDITOR_FILE_PATH",info.filePath());
+    m_editorInfo.insert("EDITOR_FILE_NAME",info.fileName());
+    m_editorInfo.insert("EDITOR_FILE_BASENAME",info.baseName());
+    m_editorInfo.insert("EDITOR_FILE_SUFFIX",info.suffix());
+    m_editorInfo.insert("EDITOR_DIR_PATH",info.path());
+    m_editorInfo.insert("EDITOR_DIR_NAME",QFileInfo(info.path()).fileName());
+    m_editorInfo.insert("EDITOR_DIR_BASENAME",QFileInfo(info.path()).baseName());
+    m_editorInfo.insert("EDITOR_DIR_GONAME",QFileInfo(info.path()).fileName().replace(" ","_"));
+}
+
+void LiteBuild::loadBuildPath(const QString &buildPath, const QString &buildName, const QString &buildInfo)
+{
+    m_buildInfo.clear();
+    m_buildRootPath = buildPath;
+    m_buildRootName = buildName;
+    if (buildName.isEmpty()) {
+        m_checkBoxLockBuild->setEnabled(false);
+        m_checkBoxLockBuild->setText("");
+        m_checkBoxLockBuild->setToolTip("");
+    } else {
+        m_checkBoxLockBuild->setEnabled(true);
+        m_checkBoxLockBuild->setText(buildName);
+        m_checkBoxLockBuild->setToolTip(QString("%1 : %2").arg(tr("Lock Build")).arg(buildInfo));
+    }
+    emit buildPathChanged(buildPath);
+    if (buildPath.isEmpty()) {
+        return;
+    }
+    QFileInfo info(buildPath);
+    m_buildInfo.insert("BUILD_DIR_PATH",info.filePath());
+    m_buildInfo.insert("BUILD_DIR_NAME",info.fileName());
+    m_buildInfo.insert("BUILD_DIR_BASENAME",info.baseName());
+    m_buildInfo.insert("BUILD_DIR_GONAME",info.fileName().replace(" ","_"));
 }
 
 void LiteBuild::loadTargetInfo(LiteApi::IBuild *build)
@@ -777,7 +957,7 @@ void LiteBuild::loadTargetInfo(LiteApi::IBuild *build)
 
 LiteApi::IBuild *LiteBuild::findProjectBuildByEditor(IEditor *editor)
 {
-    m_buildTag.clear();
+    m_buildRootPath.clear();
     m_projectInfo.clear();
     m_targetInfo.clear();
 
@@ -801,7 +981,7 @@ LiteApi::IBuild *LiteBuild::findProjectBuildByEditor(IEditor *editor)
                     projectBuild = m_buildManager->findBuild(lookup->mimeType());
                     if (projectBuild != 0) {
                         projectPath = infos.at(0).filePath();
-                        m_buildTag = projectPath;
+                        m_buildRootPath = projectPath;
                         break;
                     }
                 }
@@ -820,6 +1000,51 @@ LiteApi::IBuild *LiteBuild::findProjectBuildByEditor(IEditor *editor)
     return projectBuild;
 }
 
+void LiteBuild::setDynamicBuild()
+{
+    m_bDynamicBuild = true;
+}
+
+void LiteBuild::loadBuildType(const QString &mimeType)
+{
+    LiteApi::IBuild *build = m_buildManager->findBuild(mimeType);
+    updateBuildConfig(build);
+    if (build == m_build) {
+        return;
+    }
+    m_build = build;
+    m_buildMimeType = mimeType;
+
+    m_buildManager->setCurrentBuild(m_build);
+    m_outputRegex.clear();
+
+    QMenu *menu = 0;
+    BuildBarInfo *info = m_buildBarInfoMap.value(mimeType);
+    if (info) {
+        menu = info->buildMenu;
+    }
+    if (menu) {
+#if defined(Q_OS_OSX)
+        // dirty trick to show the correct build menu at the first time on Mac OS X
+        m_buildMenu->setEnabled(false);
+#endif
+        m_buildMenu->menuAction()->setMenu(menu);
+    } else {
+        m_buildMenu->menuAction()->setMenu(m_nullMenu);
+    }
+    m_buildMenu->setEnabled(menu != 0);
+    m_checkBoxLockBuild->setEnabled(m_build != 0);
+
+    QMapIterator<QString,BuildBarInfo*> i(m_buildBarInfoMap);
+    while(i.hasNext()) {
+        i.next();
+        bool visible = (i.key() == mimeType);
+        foreach (QAction *act, i.value()->toolbarActions) {
+            act->setVisible(visible);
+        }
+    }
+}
+
 void LiteBuild::editorCreated(LiteApi::IEditor *editor)
 {
     if (!editor) {
@@ -829,81 +1054,130 @@ void LiteBuild::editorCreated(LiteApi::IEditor *editor)
     if (!build) {
         return;
     }
-    QToolBar *toolBar = LiteApi::findExtensionObject<QToolBar*>(editor,"LiteApi.QToolBar");
-    if (!toolBar) {
+    if (!m_buildBarInfoMap.contains(build->mimeType())) {
+        BuildBarInfo *info = new BuildBarInfo;
+        QList<QAction*> actions = build->actions();
+        QList<QAction*> acts;
+        foreach (QAction *act, actions) {
+            QMenu *subMenu = act->menu();
+            if (subMenu) {
+                BuildAction *ba = build->findAction(subMenu->menuAction()->objectName());
+                if (ba) {
+                    QToolButton *btn = new QToolButton(m_buildToolBar);
+                    btn->setIcon(subMenu->menuAction()->icon());
+                    btn->setText(subMenu->title());
+                    btn->setMenu(subMenu);
+                    if (ba->isFolder()) {
+                        btn->setPopupMode(QToolButton::InstantPopup);
+                    } else {
+                        btn->setPopupMode(QToolButton::MenuButtonPopup);
+                        btn->setDefaultAction(subMenu->menuAction());
+                    }
+                    QAction *cb = m_buildToolBar->addWidget(btn);
+                    acts.push_back(cb);
+                }
+            } else {
+                QToolButton *btn = new QToolButton(m_buildToolBar);
+                btn->setDefaultAction(act);
+                QAction *cb = m_buildToolBar->addWidget(btn);
+                acts.push_back(cb);
+            }
+        }
+        QMenu *menu = new QMenu;
+        menu->addAction(m_configAct);
+        menu->addSeparator();
+        menu->addAction(m_stopAct);
+        menu->addAction(m_clearAct);
+        menu->addSeparator();
+
+        foreach (QAction *act, actions) {
+            QMenu *subMenu = act->menu();
+            if (subMenu) {
+                if (!menu->isEmpty())
+                    menu->addSeparator();
+                menu->addActions(subMenu->actions());
+            } else {
+                menu->addAction(act);
+            }
+        }
+        info->build = build;
+        info->toolbarActions = acts;
+        info->buildMenu = menu;
+        foreach (QAction *act, acts) {
+            act->setVisible(false);
+        }
+        m_buildBarInfoMap.insert(build->mimeType(),info);
+    }
+}
+
+void LiteBuild::lockBuildRootByMimeType(const QString &path, const QString &mimeType)
+{
+    LiteApi::IBuild *build = m_buildManager->findBuild(mimeType);
+    if (!build) {
         return;
     }
-    QAction *spacer = LiteApi::findExtensionObject<QAction*>(editor,"LiteApi.QToolBar.Spacer");
-    QList<QAction*> actions = build->actions();
-    toolBar->insertSeparator(spacer);
-    toolBar->insertAction(spacer,m_configAct);
-    toolBar->insertSeparator(spacer);
-    //toolBar->insertActions(spacer,actions);
-    foreach (QAction *act, actions) {
-        QMenu *subMenu = act->menu();
-        if (subMenu) {
-            BuildAction *ba = build->findAction(subMenu->menuAction()->objectName());
-            if (ba) {
-                QToolButton *btn = new QToolButton(toolBar);
-                btn->setIcon(subMenu->menuAction()->icon());
-                btn->setText(subMenu->title());
-                btn->setMenu(subMenu);
-                if (ba->isFolder()) {
-                    btn->setPopupMode(QToolButton::InstantPopup);
-                } else {
-                    btn->setPopupMode(QToolButton::MenuButtonPopup);
-                    btn->setDefaultAction(subMenu->menuAction());
-                }
-                toolBar->insertWidget(spacer,btn);
-            }
-        } else {
-            toolBar->insertAction(spacer,act);
-        }
+    if (build->lock() != "dir") {
+        return;
     }
-
-    QMenu *menu = new QMenu(editor->widget());
-
-    menu->addAction(m_configAct);
-    menu->addSeparator();
-    menu->addAction(m_stopAct);
-    menu->addAction(m_clearAct);
-    menu->addSeparator();
-
-    foreach (QAction *act, actions) {
-        QMenu *subMenu = act->menu();
-        if (subMenu) {
-            if (!menu->isEmpty())
-                menu->addSeparator();
-            menu->addActions(subMenu->actions());
-        } else {
-            menu->addAction(act);
-        }
-    }
-
-    editor->extension()->addObject("LiteApi.IBuild",build);
-    editor->extension()->addObject("LiteApi.Menu.Build",menu);
+    m_bLockBuildRoot = true;
+    m_checkBoxLockBuild->setChecked(true);
+    QString buildPath;
+    QString buildName;
+    QString buildInfo;
+    QFileInfo info(path);
+    buildPath = info.filePath();
+    buildName = info.fileName();
+    buildInfo = QDir::toNativeSeparators(buildPath);
+    loadBuildPath(buildPath,buildName,buildInfo);
+    loadBuildType(mimeType);
 }
 
 void LiteBuild::currentEditorChanged(LiteApi::IEditor *editor)
 {
-    if (!editor) {
-        m_buildMenu->menuAction()->setMenu(m_nullMenu);
-        m_buildMenu->setEnabled(false);
-        setCurrentBuild(0);
-        return;
+    //check lock build file
+    if (m_bLockBuildRoot) {
+        if (m_build && m_build->lock() == "file") {
+            return;
+        }
     }
-    LiteApi::IBuild *build = LiteApi::findExtensionObject<LiteApi::IBuild*>(editor,"LiteApi.IBuild");
-    QMenu *menu = LiteApi::findExtensionObject<QMenu*>(editor,"LiteApi.Menu.Build");    
-    if (menu) {
-        m_buildMenu->menuAction()->setMenu(menu);
+    if (editor) {
+        loadEditorInfo(editor->filePath());
     } else {
-        m_buildMenu->menuAction()->setMenu(m_nullMenu);
+        loadEditorInfo("");
     }
-    m_buildMenu->setEnabled(menu != 0);
-
-    loadEditorInfo(editor->filePath());
-
-    setCurrentBuild(build);
+    //check lock build dir
+    if (m_bLockBuildRoot) {
+        if (m_build && m_build->lock() == "dir") {
+            return;
+        }
+    }
+    QString mimeType;
+    if (editor) {
+        mimeType = editor->mimeType();
+    }
+    QString buildPath;
+    QString buildName;
+    QString buildInfo;
+    if (editor && !editor->filePath().isEmpty()) {
+        LiteApi::IBuild *build = m_buildManager->findBuild(mimeType);
+        if (build) {
+            QFileInfo info(editor->filePath());
+            if (build->lock() == "dir") {
+                buildPath = info.path();
+                buildName = QFileInfo(info.path()).fileName();
+                buildInfo = QDir::toNativeSeparators(buildPath);
+            } else if (build->lock() == "file") {
+                buildName = info.fileName();
+                buildPath = info.path();
+                buildInfo = QDir::toNativeSeparators(info.filePath());
+            }
+        } else {
+            QFileInfo info(editor->filePath());
+            buildPath = info.path();
+        }
+    }
+    loadBuildPath(buildPath,buildName,buildInfo);
+    loadBuildType(mimeType);
 }
 
 void LiteBuild::extOutput(const QByteArray &data, bool bError)
@@ -1068,6 +1342,11 @@ void LiteBuild::executeCommand(const QString &cmd1, const QString &args, const Q
 
 void LiteBuild::buildAction(LiteApi::IBuild* build,LiteApi::BuildAction* ba)
 {  
+    if (m_bOutputAutoClear) {
+        m_output->clear();
+    } else {
+        m_output->updateExistsTextColor(true);
+    }
     m_outputAct->setChecked(true);
     if (m_process->isRunning()) {        
         if (ba->isKillOld()) {
@@ -1138,10 +1417,10 @@ void LiteBuild::execAction(const QString &mime, const QString &id)
 
     QString editorPath = m_process->userData(ID_EDITOR).toString();
     QString buildFilePath;
-    if (!editorPath.isEmpty()) {
+    if (!editorPath.isEmpty() && !m_bLockBuildRoot) {
         buildFilePath = QFileInfo(editorPath).path();
     } else {
-        buildFilePath = m_buildTag;
+        buildFilePath = m_buildRootPath;
     }
 
     QMap<QString,QString> env = buildEnvMap(build,buildFilePath);
@@ -1227,7 +1506,9 @@ void LiteBuild::execAction(const QString &mime, const QString &id)
 
         m_process->setWorkingDirectory(m_workDir);        
         m_output->appendTag(QString("%1 %2 [%3]\n")
-                             .arg(QDir::cleanPath(cmd)).arg(args).arg(m_workDir));
+                            .arg(QDir::cleanPath(cmd))
+                            .arg(args)
+                            .arg(m_workDir));
 #ifdef Q_OS_WIN
         m_process->setNativeArguments(args);
         m_process->start("\""+cmd+"\"");
@@ -1291,15 +1572,21 @@ void LiteBuild::dbclickBuildOutput(const QTextCursor &cur)
         }
     }
 
-    LiteApi::IEditor *editor = m_liteApp->fileManager()->openEditor(fileName);
-    if (editor) {
+    if (LiteApi::gotoLine(m_liteApp,fileName,line-1,0,true,true)) {
         QTextCursor lineCur = cur;
         lineCur.select(QTextCursor::LineUnderCursor);
         m_output->setTextCursor(lineCur);
-        editor->widget()->setFocus();
-        LiteApi::ITextEditor *textEditor = LiteApi::findExtensionObject<LiteApi::ITextEditor*>(editor,"LiteApi.ITextEditor");
-        if (textEditor) {
-            textEditor->gotoLine(line-1,0,true);
-        }
     }
+//    return;
+//    LiteApi::IEditor *editor = m_liteApp->fileManager()->openEditor(fileName);
+//    if (editor) {
+//        QTextCursor lineCur = cur;
+//        lineCur.select(QTextCursor::LineUnderCursor);
+//        m_output->setTextCursor(lineCur);
+//        editor->widget()->setFocus();
+//        LiteApi::ITextEditor *textEditor = LiteApi::findExtensionObject<LiteApi::ITextEditor*>(editor,"LiteApi.ITextEditor");
+//        if (textEditor) {
+//            textEditor->gotoLine(line-1,0,true);
+//        }
+//    }
 }

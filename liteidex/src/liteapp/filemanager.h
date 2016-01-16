@@ -1,7 +1,7 @@
 /**************************************************************************
 ** This file is part of LiteIDE
 **
-** Copyright (c) 2011-2014 LiteIDE Team. All rights reserved.
+** Copyright (c) 2011-2016 LiteIDE Team. All rights reserved.
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
@@ -25,12 +25,14 @@
 #define FILEMANAGER_H
 
 #include "liteapi/liteapi.h"
+#include <QModelIndex>
 
 using namespace LiteApi;
 
 class QFileSystemWatcher;
 class NewFileDialog;
-class FileSystemWidget;
+class FolderListView;
+
 class FileManager : public IFileManager
 {
     Q_OBJECT
@@ -41,7 +43,7 @@ public:
 public:
     virtual void execFileWizard(const QString &projPath, const QString &filePath, const QString &gopath = QString());
     virtual bool openFile(const QString &fileName);
-    virtual IEditor *openEditor(const QString &fileName, bool bActive = true);
+    virtual IEditor *openEditor(const QString &fileName, bool bActive = true, bool ignoreNavigationHistory = false);
     virtual IEditor *createEditor(const QString &contents, const QString &mimeType);
     virtual IEditor *createEditor(const QString &fileName);
     virtual IProject *openProject(const QString &fileName);
@@ -61,6 +63,7 @@ public:
     QString openAllTypeFilter() const;
     QString openProjectTypeFilter() const;
     QString openEditorTypeFilter() const;
+    bool isShowHideFiles() const;
 protected:
     QString schemeKey(const QString &scheme) const;
 	QString schemeName(const QString &scheme) const;
@@ -72,7 +75,6 @@ public slots:
     void openFiles();
     void openFolder();
     void openFolderNewWindow();
-    void addFolder();
     void closeAllFolders();
     void newInstance();
     void openEditors();
@@ -85,9 +87,12 @@ public slots:
     void cleanRecent();
     void applyOption(QString);
     void showHideFiles(bool);
+    void activatedFolderView(const QModelIndex &index);
+    void currentEditorChanged(LiteApi::IEditor *editor);
+    void triggeredSyncEditor(bool b);
 protected:
     NewFileDialog        *m_newFileDialog;
-    FileSystemWidget     *m_folderWidget;
+    FolderListView     *m_folderListView;
     QFileSystemWatcher   *m_fileWatcher;
     QMap<QString,QDateTime> m_fileStateMap;
     QStringList          m_changedFiles;
@@ -99,8 +104,9 @@ protected:
     QMenu       *m_recentMenu;
     QAction     *m_toolWindowAct;
     QString      m_initPath;
-    QMenu*      m_configMenu;
+    QMenu*       m_filterMenu;
     QAction*     m_showHideFilesAct;
+    QAction*     m_syncEditorAct;
 };
 
 #endif // FILEMANAGER_H

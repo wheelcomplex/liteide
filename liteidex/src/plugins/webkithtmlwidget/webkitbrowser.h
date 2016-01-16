@@ -1,7 +1,7 @@
 /**************************************************************************
 ** This file is part of LiteIDE
 **
-** Copyright (c) 2011-2014 LiteIDE Team. All rights reserved.
+** Copyright (c) 2011-2016 LiteIDE Team. All rights reserved.
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
@@ -32,23 +32,28 @@ class QWebView;
 class QToolBar;
 class QLineEdit;
 class QProgressBar;
-class WebKitBrowser : public QObject
+class WebKitBrowser : public LiteApi::IWebKitBrowser
 {
     Q_OBJECT
 public:
     explicit WebKitBrowser(LiteApi::IApplication *app, QObject *parent = 0);
     ~WebKitBrowser();
-    QWidget* widget() const {return m_widget;}
+    virtual QWidget *widget();
+    virtual QString name() const;
+    virtual QString mimeType() const;
+    virtual void openUrl(const QUrl &url);
 public slots:
     void changeLocation();
     void adjustLocation();
-    void loadFinished(bool);
+    void loadUrlFinished(bool);
     void linkClicked(QUrl);
     void loadUrl(const QUrl &url);
     void linkHovered(const QString & link, const QString & title, const QString & textContent);
     void statusBarMessage(const QString &msg);
     void loadStarted();
     void loadProgress(int);
+    void openHtmlFile();
+    void reloadUrl();
 protected:
     LiteApi::IApplication *m_liteApp;
     QWidget  *m_widget;

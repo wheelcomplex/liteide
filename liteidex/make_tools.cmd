@@ -1,8 +1,10 @@
 @echo off
 
-set PATH=C:\go\bin;%PATH%
-set GOPATH=%CD%
+if defined %GOPATH (
+	set GOPATH=%CD%;%GOPATH%
+) else (
+	set GOPATH=%CD%
+)
 
-go install -ldflags "-s" -v liteide_stub
-go install -ldflags "-s" -v github.com/visualfc/goimports
+go install -ldflags "-s" -v github.com/visualfc/gotools
 go install -ldflags "-s" -v github.com/nsf/gocode

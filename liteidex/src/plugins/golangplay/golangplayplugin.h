@@ -1,7 +1,7 @@
 /**************************************************************************
 ** This file is part of LiteIDE
 **
-** Copyright (c) 2011-2014 LiteIDE Team. All rights reserved.
+** Copyright (c) 2011-2016 LiteIDE Team. All rights reserved.
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
@@ -47,7 +47,7 @@ public:
         m_info->setId("plugin/golangplay");
         m_info->setName("GolangPlay");
         m_info->setAuthor("visualfc");
-        m_info->setVer("x18");
+        m_info->setVer("X18");
         m_info->setInfo("Golang Playground");
         m_info->appendDepend("plugin/liteeditor");
     }

@@ -1,7 +1,7 @@
 /**************************************************************************
 ** This file is part of LiteIDE
 **
-** Copyright (c) 2011-2014 LiteIDE Team. All rights reserved.
+** Copyright (c) 2011-2016 LiteIDE Team. All rights reserved.
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
@@ -34,5 +34,7 @@
 
 #define LITEBUILD_OPTION   "option/litebuild"
 #define LITEBUILD_ENVCHECK "litebuild/envcheck"
+#define LITEBUILD_OUTPUTLINEWRAP "litebuild/outputlinewrap"
+#define LITEBUILD_OUTPUTAUTOCLEAR "litebuild/outputautoclear"
 
 #endif // LITEBUILD_GLOBAL_H

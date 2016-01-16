@@ -1,7 +1,7 @@
 /**************************************************************************
 ** This file is part of LiteIDE
 **
-** Copyright (c) 2011-2014 LiteIDE Team. All rights reserved.
+** Copyright (c) 2011-2016 LiteIDE Team. All rights reserved.
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
@@ -42,6 +42,7 @@ public:
         m_takeall(false)
     {}
     void setId(const QString &id) { m_id = id; }
+    void setOs(const QString &os) { m_os = os; }
     void setMenu(const QString &menu) { m_menu = menu; }
     void setKey(const QString &key) { m_key = key; }
     void setFunc(const QString &func) { m_func = func; }
@@ -76,6 +77,7 @@ public:
     void setTask(const QStringList &task) { m_task = task; }
     QString work() const { return m_work; }
     QString id() const { return m_id; }
+    QString os() const { return m_os; }
     QString menu() const { return m_menu; }
     QString key() const { return m_key; }
     QString cmd() const { return m_cmd; }
@@ -116,6 +118,7 @@ public:
 
 protected:
     QString m_id;
+    QString m_os;
     QString m_key;
     QString m_cmd;
     QString m_func;
@@ -232,6 +235,7 @@ public:
     virtual QString mimeType() const = 0;
     virtual QString id() const = 0;
     virtual QString work() const = 0;
+    virtual QString lock() const = 0;
     virtual QList<BuildAction*> actionList() const = 0;
     virtual QList<BuildLookup*> lookupList() const = 0;
     virtual QList<BuildConfig*> configList() const = 0;

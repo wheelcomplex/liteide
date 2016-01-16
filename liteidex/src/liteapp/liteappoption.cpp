@@ -1,7 +1,7 @@
 /**************************************************************************
 ** This file is part of LiteIDE
 **
-** Copyright (c) 2011-2014 LiteIDE Team. All rights reserved.
+** Copyright (c) 2011-2016 LiteIDE Team. All rights reserved.
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
@@ -82,6 +82,16 @@ LiteAppOption::LiteAppOption(LiteApi::IApplication *app,QObject *parent) :
             }
         }
     }
+    ui->styleComboBox->addItem(tr("SideBarStyle"),"sidebar");
+    ui->styleComboBox->addItem(tr("SplitterStyle"),"splitter");
+    QString style = m_liteApp->settings()->value(LITEAPP_STYLE,"sidebar").toString();
+    for (int i = 0; i < ui->styleComboBox->count(); i++) {
+        if (style == ui->styleComboBox->itemData(i).toString()) {
+            ui->styleComboBox->setCurrentIndex(i);
+            break;
+        }
+    }
+
     const QString &liteQssPath = m_liteApp->resourcePath()+"/liteapp/qss";
     QDir qssDir(liteQssPath);
     if (qssDir.exists()) {
@@ -95,7 +105,7 @@ LiteAppOption::LiteAppOption(LiteApi::IApplication *app,QObject *parent) :
         ui->qssComboBox->setCurrentIndex(index);
     }
 
-    int max = m_liteApp->settings()->value(LITEAPP_MAXRECENTFILES,16).toInt();
+    int max = m_liteApp->settings()->value(LITEAPP_MAXRECENTFILES,32).toInt();
     ui->maxRecentLineEdit->setText(QString("%1").arg(max));
     //bool b = m_liteApp->settings()->value(LITEAPP_AUTOCLOSEPROEJCTFILES,true).toBool();
     //ui->autoCloseProjecEditorsCheckBox->setChecked(b);
@@ -117,6 +127,9 @@ LiteAppOption::LiteAppOption(LiteApi::IApplication *app,QObject *parent) :
 
     bool b7 = m_liteApp->settings()->value(LITEAPP_FILEWATCHERAUTORELOAD,false).toBool();
     ui->fileWatcherAutoReloadCheckBox->setChecked(b7);
+
+    bool b8 = m_liteApp->settings()->value(LITEAPP_EDITTABSENABLEWHELL,true).toBool();
+    ui->editorTabsEnableWhellCheckBox->setChecked(b8);
 
     int id = m_liteApp->settings()->value(LITEAPP_TOOLBARICONSIZE,0).toInt();
     if (id >= 0 && id < ui->buttonGroup->buttons().size()) {
@@ -177,6 +190,13 @@ void LiteAppOption::apply()
         QString lc = ui->langComboBox->itemData(index).toString();
         m_liteApp->settings()->setValue(LITEAPP_LANGUAGE,lc);
     }
+
+    index = ui->styleComboBox->currentIndex();
+    if (index >= 0 && index < ui->styleComboBox->count()) {
+        QString style = ui->styleComboBox->itemData(index).toString();
+        m_liteApp->settings()->setValue(LITEAPP_STYLE,style);
+    }
+
     QString max = ui->maxRecentLineEdit->text();
     m_liteApp->settings()->setValue(LITEAPP_MAXRECENTFILES,max);
     //bool b = ui->autoCloseProjecEditorsCheckBox->isChecked();
@@ -195,6 +215,8 @@ void LiteAppOption::apply()
     m_liteApp->settings()->setValue(LITEAPP_STARTUPRELOADFOLDERS,b6);
     bool b7 = ui->fileWatcherAutoReloadCheckBox->isChecked();
     m_liteApp->settings()->setValue(LITEAPP_FILEWATCHERAUTORELOAD,b7);
+    bool b8 = ui->editorTabsEnableWhellCheckBox->isChecked();
+    m_liteApp->settings()->setValue(LITEAPP_EDITTABSENABLEWHELL,b8);
 
     int size = ui->buttonGroup->buttons().size();
     for (int i = 0; i < size; i++) {

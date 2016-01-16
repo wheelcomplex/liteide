@@ -1,7 +1,7 @@
 /**************************************************************************
 ** This file is part of LiteIDE
 **
-** Copyright (c) 2011-2014 LiteIDE Team. All rights reserved.
+** Copyright (c) 2011-2016 LiteIDE Team. All rights reserved.
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
@@ -66,7 +66,6 @@ bool ActionManager::initWithApp(IApplication *app)
     insertMenu("menu/edit",tr("&Edit"));
     insertMenu("menu/find",tr("F&ind"));
     m_viewMenu = insertMenu("menu/view",tr("&View"));
-    m_viewToolMenu = m_viewMenu->addMenu(tr("Tool Windows"));
     m_viewMenu->addSeparator();
     m_baseToolBarAct = m_viewMenu->addSeparator();
     m_baseBrowserAct = m_viewMenu->addSeparator();
@@ -191,8 +190,6 @@ void ActionManager::insertViewMenu(VIEWMENU_ACTION_POS pos, QAction *act)
 {
     if (pos == ViewMenuToolBarPos) {
         m_viewMenu->insertAction(m_baseToolBarAct,act);
-    } else if (pos == ViewMenuToolWindowPos) {
-        m_viewToolMenu->addAction(act);
     } else if(pos == ViewMenuBrowserPos){
         m_viewMenu->insertAction(m_baseBrowserAct,act);
     } else {

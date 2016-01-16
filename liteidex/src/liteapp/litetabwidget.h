@@ -1,7 +1,7 @@
 /**************************************************************************
 ** This file is part of LiteIDE
 **
-** Copyright (c) 2011-2014 LiteIDE Team. All rights reserved.
+** Copyright (c) 2011-2016 LiteIDE Team. All rights reserved.
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
@@ -27,6 +27,7 @@
 #include <QWidget>
 #include <QMap>
 #include <QPointer>
+#include <QTabBar>
 
 class QMenu;
 class QTabBar;
@@ -40,6 +41,31 @@ class QActionGroup;
 
 //header : headerWidget
 //body: stackedWidget
+
+class TabBar : public QTabBar
+{
+public:
+    TabBar(QWidget *parent = 0) : QTabBar(parent)
+    {
+        m_enableWheel = true;
+    }
+    void wheelEvent(QWheelEvent *event)
+    {
+        if (!m_enableWheel) {
+            return;
+        }
+        QTabBar::wheelEvent(event);
+    }
+    void setEnableWheel(bool b) {
+        m_enableWheel = b;
+    }
+    bool enableWheel() const {
+        return m_enableWheel;
+    }
+protected:
+    bool m_enableWheel;
+};
+
 class LiteTabWidget : public QObject
 {
     Q_OBJECT
@@ -52,11 +78,11 @@ public:
     int indexOf(QWidget *w);
     QWidget *widget(int index);
     QWidget *currentWidget();
-    QTabBar *tabBar();
+    TabBar *tabBar();
     void setTabText(int index, const QString & text);
     QList<QWidget*> widgetList() const;
-    QToolBar *headerToolBar();
     QWidget *stackedWidget();
+    QWidget *tabBarWidget();
 signals:
     void currentChanged(int index);
     void tabCloseRequested(int index);
@@ -70,9 +96,11 @@ public slots:
     void selectListActGroup(QAction*);
     void tabCurrentChanged(int);
 protected:
-    QToolBar        *m_headerToolBar;
-    QTabBar         *m_tabBar;
+    QToolBar        *m_dumpToolBar;
+    QWidget         *m_tabBarWidget;
+    TabBar         *m_tabBar;
     QToolButton     *m_listButton;
+    QToolButton     *m_closeButton;
     QStackedWidget  *m_stackedWidget;
     QList<QWidget*>  m_widgetList;
     QAction         *m_closeTabAct;

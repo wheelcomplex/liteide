@@ -1,7 +1,7 @@
 /**************************************************************************
 ** This file is part of LiteIDE
 **
-** Copyright (c) 2011-2014 LiteIDE Team. All rights reserved.
+** Copyright (c) 2011-2016 LiteIDE Team. All rights reserved.
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
@@ -43,7 +43,7 @@
 //lite_memory_check_end
 
 static char help[] =
-"<b>Serach Format</b>"
+"<b>Search Format</b>"
 "<pre>"
 "fmt.\n"
 "    Extracts all fmt pkg symbol document\n"
@@ -54,7 +54,7 @@ static char help[] =
 "Println\n"
 "    Extracts fmt.Println log.Println log.Logger.Println etc"
 "</pre>"
-"<b>Serach Option</b>"
+"<b>Search Option</b>"
 "<pre>"
 "Match Word.\n"
 "    Match whole world only\n"
@@ -109,7 +109,7 @@ FindDocWidget::FindDocWidget(LiteApi::IApplication *app, QWidget *parent) :
 
     m_browser = m_liteApp->htmlWidgetManager()->createByName(this,"QTextBrowser");
     QStringList paths;
-    paths << m_liteApp->resourcePath()+"/golangdoc";
+    paths << m_liteApp->resourcePath()+"/packages/go/godoc";
     m_browser->setSearchPaths(paths);
 
     QVBoxLayout *mainLayout = new QVBoxLayout;
@@ -190,7 +190,7 @@ FindDocWidget::FindDocWidget(LiteApi::IApplication *app, QWidget *parent) :
     connect(m_browser,SIGNAL(linkClicked(QUrl)),this,SLOT(openUrl(QUrl)));
 
 
-    QString path = m_liteApp->resourcePath()+"/golangdoc/finddoc.html";
+    QString path = m_liteApp->resourcePath()+"/packages/go/godoc/finddoc.html";
     QFile file(path);
     if (file.open(QIODevice::ReadOnly)) {
         m_templateData = file.readAll();
@@ -228,7 +228,7 @@ void FindDocWidget::findDoc()
     abortFind();
 
     QStringList args;
-    args << "doc" << "-urltag" << "<liteide_doc>";
+    args << "finddoc" << "-urltag" << "<liteide_doc>";
     if (m_matchWordCheckAct->isChecked()) {
        args << "-word";
     }
@@ -246,7 +246,7 @@ void FindDocWidget::findDoc()
     m_browser->clear();
     m_findFlag = findFlag;
     m_htmlData.clear();
-    QString cmd = LiteApi::liteide_stub_cmd(m_liteApp);
+    QString cmd = LiteApi::getGotools(m_liteApp);
     m_process->setEnvironment(LiteApi::getGoEnvironment(m_liteApp).toStringList());
     m_process->start(cmd,args);
 }

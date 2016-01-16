@@ -1,7 +1,7 @@
 /**************************************************************************
 ** This file is part of LiteIDE
 **
-** Copyright (c) 2011-2014 LiteIDE Team. All rights reserved.
+** Copyright (c) 2011-2016 LiteIDE Team. All rights reserved.
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
@@ -49,7 +49,7 @@ class PluginFactory : public LiteApi::PluginFactoryT<GolangPresentPlugin>
 public:
     PluginFactory() {
         m_info->setId("plugin/GoPresent");
-        m_info->setVer("x21.1");
+        m_info->setVer("X23");
         m_info->setName("GolangPresent");
         m_info->setAuthor("visualfc");
         m_info->setInfo("Golang Present Edit Support");

@@ -1,7 +1,7 @@
 /**************************************************************************
 ** This file is part of LiteIDE
 **
-** Copyright (c) 2011-2014 LiteIDE Team. All rights reserved.
+** Copyright (c) 2011-2016 LiteIDE Team. All rights reserved.
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
@@ -25,9 +25,9 @@
 #define LITEEDITORFILEFACTORY_H
 
 #include "liteapi/liteapi.h"
-#include "qtc_texteditor/katehighlighter.h"
+#include "highlightermanager.h"
 
-class WordApiManager;
+class EditorApiManager;
 class LiteEditorMarkTypeManager;
 class LiteEditor;
 
@@ -45,10 +45,10 @@ public slots:
     void tabSettingChanged(int);
 protected:
     LiteApi::IApplication *m_liteApp;
-    WordApiManager *m_wordApiManager;
+    EditorApiManager *m_wordApiManager;
     LiteEditorMarkTypeManager *m_markTypeManager;
+    HighlighterManager *m_highlighterManager;
     QStringList m_mimeTypes;
-    KateHighlighter *m_kate;
 };
 
 #endif // LITEEDITORFILEFACTORY_H

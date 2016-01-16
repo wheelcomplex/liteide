@@ -1,7 +1,7 @@
 /**************************************************************************
 ** This file is part of LiteIDE
 **
-** Copyright (c) 2011-2014 LiteIDE Team. All rights reserved.
+** Copyright (c) 2011-2016 LiteIDE Team. All rights reserved.
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
@@ -66,9 +66,9 @@ FileSearchManager::FileSearchManager(LiteApi::IApplication *app, QObject *parent
     m_searchResultWidget->setPreserveCaseSupported(false);
     m_searchResultWidget->setSearchAgainSupported(false);
     m_searchResultWidget->setAutoExpandResults(true);
-    m_searchResultWidget->setInfoWidgetLabel(tr("This file change cannot be undone!"));
+    m_searchResultWidget->setInfoWidgetLabel(tr("Only golang file changes can be revert!"));
 
-    QPalette pal = m_searchResultWidget->palette();
+    QPalette pal = m_searchWidget->palette();
     Find::Internal::SearchResultColor color;
     color.textForeground = pal.color(QPalette::Text);
     color.textBackground = pal.color(QPalette::Base);
@@ -112,6 +112,8 @@ void FileSearchManager::addFileSearch(LiteApi::IFileSearch *search)
     connect(search,SIGNAL(findStarted()),this,SLOT(findStarted()));
     connect(search,SIGNAL(findFinished(bool)),this,SLOT(findFinished(bool)));
     connect(search,SIGNAL(findResult(LiteApi::FileSearchResult)),this,SLOT(findResult(LiteApi::FileSearchResult)));
+    connect(search,SIGNAL(searchTextChanged(QString)),this,SLOT(searchTextChanged(QString)));
+    connect(search,SIGNAL(findError(QString)),this,SLOT(findError(QString)));
 }
 
 LiteApi::IFileSearch *FileSearchManager::findFileSearch(const QString &mime)
@@ -136,6 +138,7 @@ void FileSearchManager::setCurrentSearch(LiteApi::IFileSearch *search)
         m_searchItemStackedWidget->setCurrentWidget(search->widget());
     }
     m_searchResultWidget->setShowReplaceUI(m_currentSearch->replaceMode());
+    m_searchResultWidget->setCancelSupported(m_currentSearch->canCancel());
     m_currentSearch->activate();
 }
 
@@ -144,16 +147,17 @@ void FileSearchManager::activated(const Find::SearchResultItem &item)
     if (item.path.isEmpty()) {
         return;
     }
-    QString fileName = item.path.at(0);
-    LiteApi::IEditor *editor = m_liteApp->fileManager()->openEditor(fileName,true);
-    if (!editor) {
-        return;
-    }
-    LiteApi::ITextEditor *textEditor = LiteApi::getTextEditor(editor);
-    if (!textEditor) {
-        return;
-    }
-    textEditor->gotoLine(item.lineNumber-1,item.textMarkPos,false);
+    //QString fileName = item.path.at(0);
+    LiteApi::gotoLine(m_liteApp,item.path.at(0),item.lineNumber-1,item.textMarkPos,true,true);
+//    LiteApi::IEditor *editor = m_liteApp->fileManager()->openEditor(fileName,true);
+//    if (!editor) {
+//        return;
+//    }
+//    LiteApi::ITextEditor *textEditor = LiteApi::getTextEditor(editor);
+//    if (!textEditor) {
+//        return;
+//    }
+//    textEditor->gotoLine(item.lineNumber-1,item.textMarkPos,false);
 }
 
 void FileSearchManager::newSearch()
@@ -186,6 +190,11 @@ void FileSearchManager::findFinished(bool)
     m_searchResultWidget->finishSearch(false);
 }
 
+void FileSearchManager::findError(const QString &error)
+{
+    m_searchResultWidget->setInfo(m_currentSearch->displayName()+" Error:",error,error);
+}
+
 void FileSearchManager::findResult(const LiteApi::FileSearchResult &result)
 {
     m_searchResultWidget->addResult(result.path,
@@ -198,6 +207,9 @@ void FileSearchManager::findResult(const LiteApi::FileSearchResult &result)
 void FileSearchManager::doReplace(const QString &text, const QList<Find::SearchResultItem> &items, bool /*preserveCase*/)
 {
     if (text.trimmed().isEmpty()) {
+        return;
+    }
+    if (text == m_searchResultWidget->searchText()) {
         return;
     }
     if (items.isEmpty()) {
@@ -230,11 +242,21 @@ void FileSearchManager::doReplace(const QString &text, const QList<Find::SearchR
         }
     }
 
-    m_toolAct->setChecked(false);
+    //revert mode
+    m_searchResultWidget->clear();
     it.toFront();
     while(it.hasNext()) {
         it.next();
         ReplaceDocument doc(m_liteApp);
-        doc.replace(it.key(),text,it.value());
+        QList<Find::SearchResultItem> items = doc.replace(it.key(),text,it.value());
+        m_searchResultWidget->addResults(items,Find::AddOrdered,true);
     }
+    m_liteApp->editorManager()->saveAllEditors(true);
+    m_searchResultWidget->setRevertMode(text,m_currentSearch->searchText());
+}
+
+void FileSearchManager::searchTextChanged(const QString &text)
+{
+    m_searchResultWidget->setInfo(m_currentSearch->displayName()+":",QString(),text);
+    m_searchResultWidget->setTextToReplace(text);
 }

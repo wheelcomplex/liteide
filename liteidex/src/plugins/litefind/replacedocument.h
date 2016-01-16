@@ -1,7 +1,7 @@
 /**************************************************************************
 ** This file is part of LiteIDE
 **
-** Copyright (c) 2011-2014 LiteIDE Team. All rights reserved.
+** Copyright (c) 2011-2016 LiteIDE Team. All rights reserved.
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
@@ -33,7 +33,7 @@ class ReplaceDocument : public QObject
 public:
     explicit ReplaceDocument(LiteApi::IApplication *app, QObject *parent = 0);
     ~ReplaceDocument();
-    bool replace(const QString &fileName, const QString &text, const QList<Find::SearchResultItem> &items);
+    QList<Find::SearchResultItem> replace(const QString &fileName, const QString &text, const QList<Find::SearchResultItem> &items);
 protected:
     QTextDocument* fileDocument(const QString &fileName, QTextCursor &cursor, bool &crlf);
     LiteApi::IApplication *m_liteApp;

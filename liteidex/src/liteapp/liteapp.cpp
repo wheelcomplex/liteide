@@ -1,7 +1,7 @@
 /**************************************************************************
 ** This file is part of LiteIDE
 **
-** Copyright (c) 2011-2014 LiteIDE Team. All rights reserved.
+** Copyright (c) 2011-2016 LiteIDE Team. All rights reserved.
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
@@ -40,7 +40,8 @@
 #ifdef Q_OS_MAC
 #include "macsupport.h"
 #endif
-
+#include "splitwindowstyle.h"
+#include "sidewindowstyle.h"
 #include <QApplication>
 #include <QSplashScreen>
 #include <QMenuBar>
@@ -63,6 +64,8 @@
      #define new DEBUG_NEW
 #endif
 //lite_memory_check_end
+
+#define LITEIDE_VERSION "X28"
 
 QString LiteApp::getRootPath()
 {
@@ -131,6 +134,16 @@ LiteApp::LiteApp()
     }
     m_extension = new Extension;
     m_mainwindow = new MainWindow(this);
+
+    QString style = this->settings()->value(LITEAPP_STYLE,"sidebar").toString();
+    if (style == "splitter") {
+        SplitWindowStyle *style = new SplitWindowStyle(this,m_mainwindow);
+        m_mainwindow->setWindowStyle(style);
+    } else {
+        SideWindowStyle *style = new SideWindowStyle(this,m_mainwindow);
+        m_mainwindow->setWindowStyle(style);
+    }
+
     m_toolWindowManager = new ToolWindowManager;
     m_htmlWidgetManager = new HtmlWidgetManager;
     m_actionManager = new ActionManager;
@@ -142,6 +155,9 @@ LiteApp::LiteApp()
 
     m_goProxy = new GoProxy(this);
     m_actionManager->initWithApp(this);
+
+    m_mainwindow->createToolWindowMenu();
+
     m_toolWindowManager->initWithApp(this);
     m_mimeTypeManager->initWithApp(this);
     m_projectManager->initWithApp(this);
@@ -182,8 +198,8 @@ LiteApp::LiteApp()
 
     QAction *esc = new QAction(tr("Escape"),this);
     m_actionManager->getActionContext(this,"App")->regAction(esc,"Escape","ESC");
-    connect(esc,SIGNAL(triggered()),this,SLOT(escape()));
     m_mainwindow->addAction(esc);
+    connect(esc,SIGNAL(triggered()),this,SLOT(escape()));
 
     createActions();
     createMenus();
@@ -195,10 +211,11 @@ LiteApp::LiteApp()
     //m_outputManager->addOutuput(m_logOutput,tr("Console"));
     m_logAct = m_toolWindowManager->addToolWindow(Qt::BottomDockWidgetArea,m_logOutput,"eventlog",tr("Event Log"),true);
     connect(m_logOutput,SIGNAL(dbclickEvent(QTextCursor)),this,SLOT(dbclickLogOutput(QTextCursor)));
-    m_optionAct = m_editorManager->registerBrowser(m_optionManager->browser());
-    //m_viewMenu->addAction(m_optionAct);
+    m_optionAct = new QAction(tr("Options"),this);
+    m_optionAct->setMenuRole(QAction::PreferencesRole);
     m_actionManager->insertViewMenu(LiteApi::ViewMenuBrowserPos,m_optionAct);
-    m_optionManager->setAction(m_optionAct);
+    connect(m_optionAct,SIGNAL(triggered()),m_optionManager,SLOT(exec()));
+
 
     this->appendLog("LiteApp","Initializing");
 
@@ -206,10 +223,8 @@ LiteApp::LiteApp()
 
     m_optionManager->addFactory(m_liteAppOptionFactory);
 
-    //m_projectManager->addFactory(new FolderProjectFactory(this,this));
-
-    connect(m_goProxy,SIGNAL(done(QByteArray,QByteArray)),this,SLOT(goproxyDone(QByteArray,QByteArray)));
-    connect(this,SIGNAL(key_escape()),m_mainwindow,SLOT(hideToolWindow()));
+    connect(m_goProxy,SIGNAL(stdoutput(QByteArray)),this,SLOT(goproxyDone(QByteArray)));
+    connect(this,SIGNAL(key_escape()),m_mainwindow,SLOT(hideOutputWindow()));
     connect(m_mainwindow,SIGNAL(fullScreenStateChanged(bool)),m_fullScreent,SLOT(setChecked(bool)));
 }
 
@@ -323,7 +338,6 @@ void LiteApp::load(bool bUseSession, IApplication *baseApp)
     this->appendLog("DefaultHtmlWidgetFactory",m_htmlWidgetManager->defaultClassName());
 
     m_goProxy->call("version");
-    m_goProxy->call("cmdlist");    
 	
     appendLog("LiteApp","Finished loading");
 }
@@ -368,10 +382,15 @@ void LiteApp::aboutPlugins()
 
 void LiteApp::escape()
 {
-    emit key_escape();
     IEditor *editor = m_editorManager->currentEditor();
-    if (editor) {
+    if (!editor) {
+        return;
+    }
+    bool bFocus = editor->widget()->isAncestorOf(qApp->focusWidget());
+    if (!bFocus) {
         editor->onActive();
+    } else {
+        emit key_escape();
     }
 }
 
@@ -491,7 +510,7 @@ QString LiteApp::storagePath() const
 
 QString LiteApp::ideVersion() const
 {
-    return "X22";
+    return LITEIDE_VERSION;
 }
 
 QString LiteApp::ideFullName() const
@@ -507,7 +526,7 @@ QString LiteApp::ideName() const
 QString LiteApp::ideCopyright() const
 {
     static QString s_info =
-    "2011-2014(c)\n"
+    "2011-2016(c)\n"
     "visualfc@gmail.com\n"
     "\n"
     "https://github.com/visualfc/liteide\n";
@@ -604,9 +623,6 @@ void LiteApp::createActions()
     //m_openFolderNewWindowAct->setVisible(!b);
     actionContext->regAction(m_openFolderNewWindowAct,"OpenFolderNewWindow","");
 
-    m_addFolderAct = new QAction(tr("Add Folder..."),m_mainwindow);
-    actionContext->regAction(m_addFolderAct,"AddFolder","");
-
     m_closeAllFolderAct = new QAction(tr("Close All Folders"),m_mainwindow);
     actionContext->regAction(m_closeAllFolderAct,"CloseAllFolders","");
 
@@ -646,16 +662,21 @@ void LiteApp::createActions()
     actionContext->regAction(m_fullScreent,"FullScreen","Ctrl+Shift+F11");
 
     m_aboutAct = new QAction(tr("About LiteIDE"),m_mainwindow);
+#if defined(Q_OS_OSX)
+    m_aboutAct->setMenuRole(QAction::AboutRole);
+#endif
     actionContext->regAction(m_aboutAct,"About","");
 
     m_aboutPluginsAct = new QAction(tr("About Plugins"),m_mainwindow);
+#if defined(Q_OS_OSX)
+    m_aboutPluginsAct->setMenuRole(QAction::ApplicationSpecificRole);
+#endif
     actionContext->regAction(m_aboutPluginsAct,"AboutPlugins","");
 
     connect(m_newAct,SIGNAL(triggered()),m_fileManager,SLOT(newFile()));
     connect(m_openFileAct,SIGNAL(triggered()),m_fileManager,SLOT(openFiles()));
     connect(m_openFolderAct,SIGNAL(triggered()),m_fileManager,SLOT(openFolder()));
     connect(m_openFolderNewWindowAct,SIGNAL(triggered()),m_fileManager,SLOT(openFolderNewWindow()));
-    connect(m_addFolderAct,SIGNAL(triggered()),m_fileManager,SLOT(addFolder()));
     connect(m_closeAllFolderAct,SIGNAL(triggered()),m_fileManager,SLOT(closeAllFolders()));
     connect(m_newWindow,SIGNAL(triggered()),this,SLOT(newWindow()));
     connect(m_closeWindow,SIGNAL(triggered()),this,SLOT(closeWindow()));
@@ -681,7 +702,6 @@ void LiteApp::createMenus()
 
     m_fileMenu->addAction(m_newAct);
     m_fileMenu->addAction(m_openFileAct);
-    m_fileMenu->addAction(m_addFolderAct);
     m_fileMenu->addAction(m_openFolderAct);
     m_fileMenu->addAction(m_openFolderNewWindowAct);
     m_fileMenu->addSeparator();
@@ -792,7 +812,6 @@ void LiteApp::saveState()
 {
     m_settings->setValue("liteapp/geometry",m_mainwindow->saveGeometry());
     m_settings->setValue("liteapp/state",m_mainwindow->saveState());
-    m_settings->setValue("liteapp/toolState",m_mainwindow->saveToolState());
 }
 
 
@@ -807,6 +826,9 @@ void LiteApp::loadSession(const QString &name)
 
     if (m_settings->value(LITEAPP_STARTUPRELOADFOLDERS,true).toBool()) {
         m_fileManager->setFolderList(folderList);
+        if (!folderList.isEmpty()) {
+
+        }
     }
 
     if (!projectName.isEmpty()) {
@@ -891,7 +913,7 @@ void LiteApp::dbclickLogOutput(QTextCursor cur)
     }
 }
 
-void LiteApp::goproxyDone(const QByteArray &id, const QByteArray &reply)
+void LiteApp::goproxyDone(const QByteArray &reply)
 {
-    this->appendLog("GoProxy",QString("%1 = %2").arg(QString::fromUtf8(id)).arg(QString::fromUtf8(reply)));
+    this->appendLog("GoProxy",QString("%1 = %2").arg(QString::fromUtf8(m_goProxy->commandId())).arg(QString::fromUtf8(reply).trimmed()));
 }
