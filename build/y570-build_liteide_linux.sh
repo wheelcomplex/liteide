@@ -50,34 +50,20 @@ fi
 
 echo build liteide tools ...
 cd $LITEIDE_ROOT
-export GOPATH=$GOPATH:$PWD
-pwd
 
-go install -ldflags "-s" -v github.com/visualfc/gotools
+if [ -z $GOPATH]; then
+	export GOPATH=$PWD
+else
+	export GOPATH=$PWD:$GOPATH
+fi
+
+go get -t -v github.com/visualfc/gotools && go install -ldflags "-s" -v github.com/visualfc/gotools
 
 if [ $? -ge 1 ]; then
 	echo 'error, go install github.com/visualfc/gotoolss fail'
 	exit 1
 fi
-
-#for onefile in `find . -name  "*.go"`; do sed -i -e 's#code.google.com/p/go.tools/go#golang.org/x/tools/go#g' $onefile; done
-
-#golang.org/x/tools/astutil
-pkglist="
-golang.org/x/tools/go/ast/astutil
-golang.org/x/tools/go/types
-golang.org/x/tools/go/gcimporter
-golang.org/x/tools/go/types
-golang.org/x/tools/present
-golang.org/x/tools/go/gcimporter
-golang.org/x/tools/go/types
-golang.org/x/tools/present
-"
-pkglist=""
-
-for pkg in $pkglist; do echo "go get -u $pkg";echo '';go get -u $pkg; test $? -ne 0 && echo "go get -u $pkg failed" && env |grep GO && exit 1; done
-
-go install -ldflags "-s" -v github.com/nsf/gocode
+go get -t github.com/nsf/gocode && go install -ldflags "-s" -v github.com/nsf/gocode
 
 if [ $? -ge 1 ]; then
 	echo 'error, go install fail'
@@ -88,7 +74,7 @@ echo deploy ...
 
 cd $BUILD_ROOT
 
-rm -r liteide
+rm -rf liteide
 mkdir -p liteide
 mkdir -p liteide/bin
 mkdir -p liteide/share/liteide
