@@ -20,18 +20,29 @@ fi
 
 export PATH=$QTDIR/bin:$PATH
 
-echo qmake liteide ...
+QMAKE=`which qmake`
+test -z "$QMAKE" && QMAKE="/usr/local/bin/qmake-qt4"
+test ! -x "$QMAKE" && QMAKE="/usr/local/lib/qt5/bin/qmake"
+
+if [ ! -x "$QMAKE" ]
+then
+	echo "----"
+	echo "Error: qmake no found, please pkg install qt4-qmake or pkg install qt5-qmake."
+	exit 1
+fi
+
+echo $QMAKE liteide ...
 echo .
-qmake $LITEIDE_ROOT -spec freebsd-g++ "CONFIG+=release"
+$QMAKE $LITEIDE_ROOT -spec freebsd-g++ "CONFIG+=release"
 
 if [ $? -ge 1 ]; then
-	echo 'error, qmake fail'
+	echo 'error, $QMAKE fail'
 	exit 1
 fi
 
 echo make liteide ...
 echo .
-make
+make -j8
 
 if [ $? -ge 1 ]; then
 	echo 'error, make fail'
@@ -53,26 +64,24 @@ else
 	export GOPATH=$PWD:$GOPATH
 fi
 
-
-go install -ldflags "-s" -v github.com/visualfc/gotools
+go get -t -v github.com/visualfc/gotools && go install -ldflags "-s" -v github.com/visualfc/gotools
 
 if [ $? -ge 1 ]; then
-	echo 'error, go install fail'
+	echo 'error, go install github.com/visualfc/gotoolss fail'
 	exit 1
 fi
-
-go install -ldflags "-s" -v github.com/nsf/gocode
+go get -t github.com/nsf/gocode && go install -ldflags "-s" -v github.com/nsf/gocode
 
 if [ $? -ge 1 ]; then
-	echo 'error, go install fail'
+	echo 'error, go install github.com/nsf/gocode fail'
 	exit 1
 fi
 
 echo deploy ...
 
-cd $BUILD_ROOT
+cd $BUILD_ROOT || exit 1
 
-rm -r liteide
+rm -rf liteide
 mkdir -p liteide
 mkdir -p liteide/bin
 mkdir -p liteide/share/liteide
