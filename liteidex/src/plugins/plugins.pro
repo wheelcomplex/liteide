@@ -16,6 +16,7 @@ SUBDIRS = \
     golangedit \
     golangfmt \
     golangcode \
+    golangdoc \
     golangplay \
     golangpackage \
     golangpresent \
