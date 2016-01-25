@@ -63,7 +63,16 @@ void PluginManager::loadPlugins(const QString &dir)
     QMap<QString,int> idIndexMap;
     QMap<QString,IPluginFactory*> idPlguinMap;
     foreach (QFileInfo info, pluginsDir.entryInfoList()) {
+
+qDebug().nospace() << "PluginManager::loadPlugins" << qPrintable(info.filePath()) << "\n";
+
         QPluginLoader loader(info.filePath());
+
+	if (loader.instance() == NULL) {
+qDebug().nospace() << "PluginManager::loadPlugins" << qPrintable(info.filePath()) << " failed\n";
+	return;
+	}
+
         if (IPluginFactory *factory = qobject_cast<IPluginFactory*>(loader.instance())) {
             if (factory) {
                 factory->setFilePath(info.filePath());
