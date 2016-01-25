@@ -21,13 +21,23 @@ fi
 export PATH=$QTDIR/bin:$PATH
 
 QMAKE=`which qmake`
-test -z "$QMAKE" && QMAKE="/usr/local/lib/qt5/bin/qmake"
+test -z "$QMAKE" && QMAKE="/usr/local/bin/qmake-qt4"
 
 if [ ! -x "$QMAKE" ]
 then
 	echo "----"
-	echo "Error: qmake no found, please pkg install qt5 qt5-qmake."
+	echo "Error: qmake no found, please pkg install qt4 qt4-qmake."
 	exit 1
+fi
+
+# clean first
+if [ -s ${BUILD_ROOT}/build_freebsd.sh -a -s ${BUILD_ROOT}/../liteidex/src/src.pro ]
+then
+        find . -name Makefile | xargs rm -f {}\;
+        test $? -ne 0 && echo "warning: clean for freebsd failed."
+else
+        echo "Must run in build directory."
+        exit 1
 fi
 
 echo $QMAKE liteide ...
