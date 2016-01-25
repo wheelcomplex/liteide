@@ -21,20 +21,20 @@ fi
 export PATH=$QTDIR/bin:$PATH
 
 QMAKE=`which qmake`
-test -z "$QMAKE" && QMAKE="/usr/local/bin/qmake-qt4"
-test ! -x "$QMAKE" && QMAKE="/usr/local/lib/qt5/bin/qmake"
+test -z "$QMAKE" && QMAKE="/usr/local/lib/qt5/bin/qmake"
 
 if [ ! -x "$QMAKE" ]
 then
 	echo "----"
-	echo "Error: qmake no found, please pkg install qt4-qmake or pkg install qt5-qmake."
+	echo "Error: qmake no found, please pkg install qt5 qt5-qmake."
 	exit 1
 fi
 
 echo $QMAKE liteide ...
 echo .
 #$QMAKE $LITEIDE_ROOT -spec freebsd-g++ "CONFIG+=release"
-$QMAKE $LITEIDE_ROOT -spec freebsd-g++ "CONFIG+=debug"
+#$QMAKE $LITEIDE_ROOT -spec freebsd-g++ "CONFIG+=debug"
+$QMAKE $LITEIDE_ROOT -spec freebsd-clang "CONFIG+=debug"
 
 if [ $? -ge 1 ]; then
 	echo 'error, $QMAKE fail'
