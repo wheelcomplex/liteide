@@ -33,7 +33,8 @@ fi
 
 echo $QMAKE liteide ...
 echo .
-$QMAKE $LITEIDE_ROOT -spec freebsd-g++ "CONFIG+=release"
+#$QMAKE $LITEIDE_ROOT -spec freebsd-g++ "CONFIG+=release"
+$QMAKE $LITEIDE_ROOT -spec freebsd-g++ "CONFIG+=debug"
 
 if [ $? -ge 1 ]; then
 	echo 'error, $QMAKE fail'
