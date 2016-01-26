@@ -815,7 +815,8 @@ inline QString getGotools(LiteApi::IApplication *app)
 #ifdef Q_OS_WIN
     return app->applicationPath()+"/gotools.exe";
 #else
-    return app->applicationPath()+"/gotools";
+    //return app->applicationPath()+"/gotools";
+    return "gotools";
 #endif
 }
 

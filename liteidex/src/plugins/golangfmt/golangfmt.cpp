@@ -79,7 +79,7 @@ void GolangFmt::applyOption(QString id)
     m_sorImports = m_liteApp->settings()->value(GOLANGFMT_SORTIMPORTS,true).toBool();
     m_autofmt = m_liteApp->settings()->value(GOLANGFMT_AUTOFMT,true).toBool();
     m_syncfmt = m_liteApp->settings()->value(GOLANGFMT_USESYNCFMT,true).toBool();
-    m_timeout = m_liteApp->settings()->value(GOLANGFMT_SYNCTIMEOUT,500).toInt();
+    m_timeout = m_liteApp->settings()->value(GOLANGFMT_SYNCTIMEOUT,508).toInt();
 }
 
 void GolangFmt::syncfmtEditor(LiteApi::IEditor *editor, bool save, bool check, int timeout, int fmtStyle)
@@ -133,10 +133,21 @@ void GolangFmt::syncfmtEditor(LiteApi::IEditor *editor, bool save, bool check, i
         args << "-sortimports";
     }
     QString cmd = LiteApi::getGotools(m_liteApp);
+	
+	//m_liteApp->appendLog("gofmt",QString("GolangFmt::syncfmtEditor, start proc, cmd %1, args %2, timeout %3ms when starting go code format").arg(cmd, args, timeout),false);
+	
+	qDebug().nospace() << "GolangFmt::syncfmtEditor, start proc, cmd: " << qPrintable(cmd) << "\n";
+	qDebug().nospace() << "GolangFmt::syncfmtEditor, start proc, args: " << qPrintable(args.join(",")) << "\n";
+	
     process.start(cmd,args);
 
     if (!process.waitForStarted(timeout)) {
-        m_liteApp->appendLog("gofmt",QString("Timed out after %1ms when starting go code format").arg(timeout),false);
+		
+		process.waitForFinished();
+    	QProcess::ExitStatus Status = process.exitStatus(); 
+	
+        m_liteApp->appendLog("gofmt",QString("exitcode %1ms when starting go code format").arg(Status),false);
+		m_liteApp->appendLog("gofmt",QString("Timed out after %1ms when starting go code format").arg(timeout),false);
         return;
     }
     process.write(text.toUtf8());
@@ -252,7 +263,7 @@ void GolangFmt::editorAboutToSave(LiteApi::IEditor* editor)
         return;
     }
     if (m_syncfmt) {
-        syncfmtEditor(editor,true);
+        syncfmtEditor(editor,true,true, 800);
     } else {
         fmtEditor(editor,true);
     }

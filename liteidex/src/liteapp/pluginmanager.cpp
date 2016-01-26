@@ -64,16 +64,16 @@ void PluginManager::loadPlugins(const QString &dir)
     QMap<QString,IPluginFactory*> idPlguinMap;
     foreach (QFileInfo info, pluginsDir.entryInfoList()) {
 
-qDebug().nospace() << "PluginManager::loadPlugins" << qPrintable(info.filePath()) << "\n";
+	qDebug().nospace() << "PluginManager::loadPlugins: " << qPrintable(info.filePath()) << "\n";
 
-        QPluginLoader loader(info.filePath());
+    QPluginLoader loader(info.filePath());
 
 	if (loader.instance() == NULL) {
-qDebug().nospace() << "PluginManager::loadPlugins" << qPrintable(info.filePath()) << " failed\n";
-	return;
+		qDebug().nospace() << "PluginManager::loadPlugins: " << qPrintable(info.filePath()) << " failed\n";
+		return;
 	}
 
-        if (IPluginFactory *factory = qobject_cast<IPluginFactory*>(loader.instance())) {
+    if (IPluginFactory *factory = qobject_cast<IPluginFactory*>(loader.instance())) {
             if (factory) {
                 factory->setFilePath(info.filePath());
                 idIndexMap.insert(factory->id(),0);
