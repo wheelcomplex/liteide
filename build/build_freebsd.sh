@@ -35,6 +35,11 @@ if [ -s ${BUILD_ROOT}/build_freebsd.sh -a -s ${BUILD_ROOT}/../liteidex/src/src.p
 then
         find . -name Makefile | xargs rm -f {}\;
         test $? -ne 0 && echo "warning: clean for freebsd failed."
+	if [ "$1" = "--clean" ]
+	then
+		echo "clean for full building."
+		rm -rf ${BUILD_ROOT}/liteide/ ${BUILD_ROOT}/../liteidex/liteide/
+	fi
 else
         echo "Must run in build directory."
         exit 1
